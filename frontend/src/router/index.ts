@@ -40,7 +40,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/LoginView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Login'
+      title: 'Login',
+      titleKey: 'common.login'
     }
   },
   {
@@ -49,7 +50,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/RegisterView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Register'
+      title: 'Register',
+      titleKey: 'auth.createAccount'
     }
   },
   {
@@ -85,7 +87,8 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/ForgotPasswordView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Forgot Password'
+      title: 'Forgot Password',
+      titleKey: 'auth.forgotPasswordTitle'
     }
   },
   {
@@ -389,12 +392,7 @@ router.beforeEach((to, _from, next) => {
 
   // Set page title
   const appStore = useAppStore()
-  const siteName = appStore.siteName || 'Sub2API'
-  if (to.meta.title) {
-    document.title = `${to.meta.title} - ${siteName}`
-  } else {
-    document.title = siteName
-  }
+  document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string)
 
   // Check if route requires authentication
   const requiresAuth = to.meta.requiresAuth !== false // Default to true
