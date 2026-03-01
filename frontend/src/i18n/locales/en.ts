@@ -2007,7 +2007,7 @@ export default {
         gemini3Pro: 'G3P',
         gemini3Flash: 'G3F',
         gemini3Image: 'G3I',
-        claude45: 'C4.5'
+        claude: 'C4.6'
       },
       tier: {
         free: 'Free',
