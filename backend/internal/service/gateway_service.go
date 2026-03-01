@@ -499,11 +499,11 @@ func (s *GatewayService) hashContent(content string) string {
 // replaceModelInBody 替换请求体中的model字段
 // 使用 json.RawMessage 保留其他字段的原始字节，避免 thinking 块等内容被修改
 func (s *GatewayService) GetAccessToken(ctx context.Context, account *Account) (string, string, error) {
-	return s.getAccessTokenImpl(ctx, account)
+	return getAccessTokenImpl(s, ctx, account)
 }
 
 func (s *GatewayService) getOAuthToken(ctx context.Context, account *Account) (string, string, error) {
-	return s.getOAuthTokenImpl(ctx, account)
+	return getOAuthTokenImpl(s, ctx, account)
 }
 
 func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest) (*ForwardResult, error) {
@@ -1055,17 +1055,17 @@ func (s *GatewayService) replaceModelInResponseBody(body []byte, fromModel, toMo
 
 // RecordUsage 记录使用量并扣费（或更新订阅用量）
 func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest) error {
-	return s.forwardCountTokensImpl(ctx, c, account, parsed)
+	return forwardCountTokensImpl(s, ctx, c, account, parsed)
 }
 
 func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token, tokenType, modelID string, mimicClaudeCode bool) (*http.Request, error) {
-	return s.buildCountTokensRequestImpl(ctx, c, account, body, token, tokenType, modelID, mimicClaudeCode)
+	return buildCountTokensRequestImpl(s, ctx, c, account, body, token, tokenType, modelID, mimicClaudeCode)
 }
 
 func (s *GatewayService) countTokensError(c *gin.Context, status int, errType, message string) {
-	s.countTokensErrorImpl(c, status, errType, message)
+	countTokensErrorImpl(s, c, status, errType, message)
 }
 
 func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64, platform string) []string {
-	return s.getAvailableModelsImpl(ctx, groupID, platform)
+	return getAvailableModelsImpl(s, ctx, groupID, platform)
 }

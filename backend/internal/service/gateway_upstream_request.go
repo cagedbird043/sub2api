@@ -772,7 +772,7 @@ func (s *GatewayService) validateUpstreamBaseURL(raw string) (string, error) {
 // GetAvailableModels returns the list of models available for a group
 // It aggregates model_mapping keys from all schedulable accounts in the group
 
-func (s *GatewayService) getAccessTokenImpl(ctx context.Context, account *Account) (string, string, error) {
+var getAccessTokenImpl = func(s *GatewayService, ctx context.Context, account *Account) (string, string, error) {
 	switch account.Type {
 	case AccountTypeOAuth, AccountTypeSetupToken:
 		// Both oauth and setup-token use OAuth token flow
@@ -788,8 +788,7 @@ func (s *GatewayService) getAccessTokenImpl(ctx context.Context, account *Accoun
 	}
 }
 
-func (s *GatewayService) getOAuthTokenImpl(ctx context.Context, account *Account) (string, string, error) {
-	// 对于 Anthropic OAuth 账号，使用 ClaudeTokenProvider 获取缓存的 token
+var getOAuthTokenImpl = func(s *GatewayService, ctx context.Context, account *Account) (string, string, error) { // 对于 Anthropic OAuth 账号，使用 ClaudeTokenProvider 获取缓存的 token
 	if account.Platform == PlatformAnthropic && account.Type == AccountTypeOAuth && s.claudeTokenProvider != nil {
 		accessToken, err := s.claudeTokenProvider.GetAccessToken(ctx, account)
 		if err != nil {
@@ -808,7 +807,7 @@ func (s *GatewayService) getOAuthTokenImpl(ctx context.Context, account *Account
 }
 
 // 重试相关常量
-func (s *GatewayService) forwardCountTokensImpl(ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest) error {
+var forwardCountTokensImpl = func(s *GatewayService, ctx context.Context, c *gin.Context, account *Account, parsed *ParsedRequest) error {
 	if parsed == nil {
 		s.countTokensError(c, http.StatusBadRequest, "invalid_request_error", "Request body is empty")
 		return fmt.Errorf("parse request: empty request")
@@ -963,8 +962,7 @@ func (s *GatewayService) forwardCountTokensImpl(ctx context.Context, c *gin.Cont
 }
 
 // buildCountTokensRequest 构建 count_tokens 上游请求
-func (s *GatewayService) buildCountTokensRequestImpl(ctx context.Context, c *gin.Context, account *Account, body []byte, token, tokenType, modelID string, mimicClaudeCode bool) (*http.Request, error) {
-	// 确定目标 URL
+var buildCountTokensRequestImpl = func(s *GatewayService, ctx context.Context, c *gin.Context, account *Account, body []byte, token, tokenType, modelID string, mimicClaudeCode bool) (*http.Request, error) { // 确定目标 URL
 	targetURL := claudeAPICountTokensURL
 	if account.Type == AccountTypeAPIKey {
 		baseURL := account.GetBaseURL()
@@ -1078,7 +1076,7 @@ func (s *GatewayService) buildCountTokensRequestImpl(ctx context.Context, c *gin
 }
 
 // countTokensError 返回 count_tokens 错误响应
-func (s *GatewayService) countTokensErrorImpl(c *gin.Context, status int, errType, message string) {
+var countTokensErrorImpl = func(s *GatewayService, c *gin.Context, status int, errType, message string) {
 	c.JSON(status, gin.H{
 		"type": "error",
 		"error": gin.H{
@@ -1088,7 +1086,7 @@ func (s *GatewayService) countTokensErrorImpl(c *gin.Context, status int, errTyp
 	})
 }
 
-func (s *GatewayService) getAvailableModelsImpl(ctx context.Context, groupID *int64, platform string) []string {
+var getAvailableModelsImpl = func(s *GatewayService, ctx context.Context, groupID *int64, platform string) []string {
 	var accounts []Account
 	var err error
 
