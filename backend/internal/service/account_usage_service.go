@@ -12,7 +12,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
 
-type UsageLogRepository interface {
+// UsageLogCRUD 基础增删查列操作
+type UsageLogCRUD interface {
 	// Create creates a usage log and returns whether it was actually inserted.
 	// inserted is false when the insert was skipped due to conflict (idempotent retries).
 	Create(ctx context.Context, log *UsageLog) (inserted bool, err error)
@@ -27,7 +28,10 @@ type UsageLogRepository interface {
 	ListByAPIKeyAndTimeRange(ctx context.Context, apiKeyID int64, startTime, endTime time.Time) ([]UsageLog, *pagination.PaginationResult, error)
 	ListByAccountAndTimeRange(ctx context.Context, accountID int64, startTime, endTime time.Time) ([]UsageLog, *pagination.PaginationResult, error)
 	ListByModelAndTimeRange(ctx context.Context, modelName string, startTime, endTime time.Time) ([]UsageLog, *pagination.PaginationResult, error)
+}
 
+// UsageLogAnalytics 统计、趋势、聚合查询
+type UsageLogAnalytics interface {
 	GetAccountWindowStats(ctx context.Context, accountID int64, startTime time.Time) (*usagestats.AccountStats, error)
 	GetAccountTodayStats(ctx context.Context, accountID int64) (*usagestats.AccountStats, error)
 
@@ -60,6 +64,12 @@ type UsageLogRepository interface {
 	GetAccountStatsAggregated(ctx context.Context, accountID int64, startTime, endTime time.Time) (*usagestats.UsageStats, error)
 	GetModelStatsAggregated(ctx context.Context, modelName string, startTime, endTime time.Time) (*usagestats.UsageStats, error)
 	GetDailyStatsAggregated(ctx context.Context, userID int64, startTime, endTime time.Time) ([]map[string]any, error)
+}
+
+// UsageLogRepository 组合两个接口（保持向后兼容）
+type UsageLogRepository interface {
+	UsageLogCRUD
+	UsageLogAnalytics
 }
 
 // apiUsageCache 缓存从 Anthropic API 获取的使用率数据（utilization, resets_at）
