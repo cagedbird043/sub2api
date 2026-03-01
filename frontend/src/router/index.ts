@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
+import { resolveDocumentTitle } from '@/router/title'
 
 /**
  * Route definitions with lazy loading
