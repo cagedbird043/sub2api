@@ -107,7 +107,7 @@ func TestIsModelRateLimited(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name: "antigravity platform - gemini-3-pro-preview mapped to gemini-3.1-pro-high",
+			name: "antigravity platform - gemini-3-pro-preview is unsupported",
 			account: &Account{
 				Platform: PlatformAntigravity,
 				Extra: map[string]any{
@@ -119,7 +119,7 @@ func TestIsModelRateLimited(t *testing.T) {
 				},
 			},
 			requestedModel: "gemini-3-pro-preview",
-			expected:       true,
+			expected:       false,
 		},
 		{
 			name: "non-antigravity platform - gemini-3-pro-preview NOT mapped",
@@ -185,7 +185,7 @@ func TestIsModelRateLimited_Antigravity_ThinkingAffectsModelKey(t *testing.T) {
 		Platform: PlatformAntigravity,
 		Extra: map[string]any{
 			modelRateLimitsKey: map[string]any{
-				"claude-sonnet-4-5-thinking": map[string]any{
+				"claude-sonnet-4-6": map[string]any{
 					"rate_limit_reset_at": future,
 				},
 			},
@@ -238,12 +238,12 @@ func TestGetModelRateLimitRemainingTime(t *testing.T) {
 			account: &Account{
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{
-						"claude-3-5-sonnet": "claude-sonnet-4-5",
+						"claude-3-5-sonnet": "claude-sonnet-4-6",
 					},
 				},
 				Extra: map[string]any{
 					modelRateLimitsKey: map[string]any{
-						"claude-sonnet-4-5": map[string]any{
+						"claude-sonnet-4-6": map[string]any{
 							"rate_limit_reset_at": future5m,
 						},
 					},
@@ -343,7 +343,7 @@ func TestGetRateLimitRemainingTime(t *testing.T) {
 				Platform: PlatformAntigravity,
 				Extra: map[string]any{
 					modelRateLimitsKey: map[string]any{
-						"claude-sonnet-4-5": map[string]any{
+						"claude-sonnet-4-6": map[string]any{
 							"rate_limit_reset_at": future15m,
 						},
 					},
@@ -359,7 +359,7 @@ func TestGetRateLimitRemainingTime(t *testing.T) {
 				Platform: PlatformAntigravity,
 				Extra: map[string]any{
 					modelRateLimitsKey: map[string]any{
-						"claude-sonnet-4-5": map[string]any{
+						"claude-sonnet-4-6": map[string]any{
 							"rate_limit_reset_at": future5m,
 						},
 					},
