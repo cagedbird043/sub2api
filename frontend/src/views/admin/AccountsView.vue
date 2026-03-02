@@ -119,7 +119,7 @@
         </div>
       </template>
       <template #table>
-        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" />
+        <AccountBulkActionsBar :selected-ids="selIds" @delete="handleBulkDelete" @edit="showBulkEdit = true" @clear="selIds = []" @select-page="selectPage" @toggle-schedulable="handleBulkToggleSchedulable" @restore-default-mapping="handleBulkRestoreDefaultMapping" />
         <DataTable
           :columns="cols"
           :data="accounts"
@@ -310,13 +310,13 @@ import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import type { Account, AccountPlatform, Proxy, AdminGroup } from '@/types'
+import type { Account, AccountPlatform, Proxy as AccountProxy, AdminGroup } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
-const proxies = ref<Proxy[]>([])
+const proxies = ref<AccountProxy[]>([])
 const groups = ref<AdminGroup[]>([])
 const selIds = ref<number[]>([])
 const selPlatforms = computed<AccountPlatform[]>(() => {
@@ -359,6 +359,12 @@ const hiddenColumns = reactive<Set<string>>(new Set())
 const DEFAULT_HIDDEN_COLUMNS = ['proxy', 'notes', 'priority', 'rate_multiplier']
 const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
 
+interface AccountTableColumn {
+  key: string
+  label: string
+  sortable: boolean
+}
+
 // Sorting settings
 const ACCOUNT_SORT_STORAGE_KEY = 'account-table-sort'
 
@@ -395,13 +401,19 @@ const loadSavedColumns = () => {
     const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
     if (saved) {
       const parsed = JSON.parse(saved) as string[]
-      parsed.forEach(key => hiddenColumns.add(key))
+      parsed.forEach((key) => {
+        hiddenColumns.add(key)
+      })
     } else {
-      DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
+      DEFAULT_HIDDEN_COLUMNS.forEach((key) => {
+        hiddenColumns.add(key)
+      })
     }
   } catch (e) {
     console.error('Failed to load saved columns:', e)
-    DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
+    DEFAULT_HIDDEN_COLUMNS.forEach((key) => {
+      hiddenColumns.add(key)
+    })
   }
 }
 
@@ -527,7 +539,7 @@ const { pause: pauseAutoRefresh, resume: resumeAutoRefresh } = useIntervalFn(
 
 // All available columns
 const allColumns = computed(() => {
-  const c = [
+  const c: AccountTableColumn[] = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
@@ -555,12 +567,12 @@ const allColumns = computed(() => {
 
 // Columns that can be toggled (exclude select, name, and actions)
 const toggleableColumns = computed(() =>
-  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'name' && col.key !== 'actions')
+  allColumns.value.filter((col: AccountTableColumn) => col.key !== 'select' && col.key !== 'name' && col.key !== 'actions')
 )
 
 // Filtered columns based on visibility
 const cols = computed(() =>
-  allColumns.value.filter(col =>
+  allColumns.value.filter((col: AccountTableColumn) =>
     col.key === 'select' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
   )
 )
@@ -578,7 +590,8 @@ const openMenu = (a: Account, e: MouseEvent) => {
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
 
-    let left, top
+    let left: number
+    let top: number
 
     if (viewportWidth < 768) {
       // 居中显示,水平位置
@@ -625,7 +638,9 @@ const toggleSelectAllVisible = (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.checked) {
     const next = new Set(selIds.value)
-    accounts.value.forEach(account => next.add(account.id))
+    accounts.value.forEach((account) => {
+      next.add(account.id)
+    })
     selIds.value = Array.from(next)
     return
   }
@@ -735,6 +750,41 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
     appStore.showError(t('common.error'))
   }
 }
+
+const handleBulkRestoreDefaultMapping = async () => {
+  const accountIds = [...selIds.value]
+  if (accountIds.length === 0) {
+    return
+  }
+
+  if (!confirm(t('admin.accounts.bulkActions.restoreDefaultMappingConfirm', { count: accountIds.length }))) {
+    return
+  }
+
+  try {
+    const result = await adminAPI.accounts.batchRestoreDefaultModelMapping(accountIds)
+    const successCount = result.success ?? 0
+    const failedCount = result.failed ?? 0
+    const failedIds = Array.isArray(result.failed_ids) ? result.failed_ids : []
+
+    if (successCount > 0 && failedCount === 0) {
+      appStore.showSuccess(t('admin.accounts.bulkRestoreMappingSuccess', { count: successCount }))
+      selIds.value = []
+    } else if (successCount > 0) {
+      appStore.showError(t('admin.accounts.bulkRestoreMappingPartial', { success: successCount, failed: failedCount }))
+      selIds.value = failedIds.length > 0 ? failedIds : accountIds
+    } else {
+      appStore.showError(t('admin.accounts.bulkRestoreMappingResultUnknown'))
+      selIds.value = accountIds
+    }
+
+    await load()
+  } catch (error) {
+    console.error('Failed to bulk restore default model mapping:', error)
+    appStore.showError(t('common.error'))
+  }
+}
+
 const handleBulkUpdated = () => { showBulkEdit.value = false; selIds.value = []; reload() }
 const handleDataImported = () => { showImportData.value = false; reload() }
 const formatExportTimestamp = () => {

@@ -450,6 +450,14 @@ export interface AccountEffectiveModelMappingResponse {
   deprecated_warnings?: AccountModelMappingDeprecation[]
 }
 
+export interface BatchAccountOperationResult {
+  success: number
+  failed: number
+  success_ids?: number[]
+  failed_ids?: number[]
+  results: Array<{ account_id: number; success: boolean; error?: string }>
+}
+
 export async function getEffectiveModelMapping(id: number): Promise<AccountEffectiveModelMappingResponse> {
   const { data } = await apiClient.get<AccountEffectiveModelMappingResponse>(
     `/admin/accounts/${id}/effective-model-mapping`
@@ -460,6 +468,14 @@ export async function getEffectiveModelMapping(id: number): Promise<AccountEffec
 export async function restoreDefaultModelMapping(id: number): Promise<AccountEffectiveModelMappingResponse> {
   const { data } = await apiClient.post<AccountEffectiveModelMappingResponse>(
     `/admin/accounts/${id}/restore-model-mapping-default`
+  )
+  return data
+}
+
+export async function batchRestoreDefaultModelMapping(accountIds: number[]): Promise<BatchAccountOperationResult> {
+  const { data } = await apiClient.post<BatchAccountOperationResult>(
+    '/admin/accounts/batch-restore-model-mapping-default',
+    { account_ids: accountIds }
   )
   return data
 }
@@ -514,7 +530,8 @@ export const accountsAPI = {
   importData,
   getAntigravityDefaultModelMapping,
   getEffectiveModelMapping,
-  restoreDefaultModelMapping
+  restoreDefaultModelMapping,
+  batchRestoreDefaultModelMapping
 }
 
 export default accountsAPI

@@ -53,6 +53,7 @@ type AdminService interface {
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
 	GetAccountEffectiveModelMapping(ctx context.Context, id int64) (*AccountEffectiveModelMapping, error)
 	RestoreAccountDefaultModelMapping(ctx context.Context, id int64) (*AccountEffectiveModelMapping, error)
+	BatchRestoreAccountDefaultModelMapping(ctx context.Context, ids []int64) (*BulkUpdateAccountsResult, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
 
 	// Proxy management
@@ -1492,6 +1493,46 @@ func (s *adminServiceImpl) RestoreAccountDefaultModelMapping(ctx context.Context
 	}
 
 	return s.GetAccountEffectiveModelMapping(ctx, id)
+}
+
+func (s *adminServiceImpl) BatchRestoreAccountDefaultModelMapping(ctx context.Context, ids []int64) (*BulkUpdateAccountsResult, error) {
+	result := &BulkUpdateAccountsResult{
+		SuccessIDs: make([]int64, 0, len(ids)),
+		FailedIDs:  make([]int64, 0, len(ids)),
+		Results:    make([]BulkUpdateAccountResult, 0, len(ids)),
+	}
+
+	if len(ids) == 0 {
+		return result, nil
+	}
+
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+
+		entry := BulkUpdateAccountResult{AccountID: id}
+		if err := s.accountRepo.RemoveCredentialKey(ctx, id, "model_mapping"); err != nil {
+			entry.Success = false
+			entry.Error = err.Error()
+			result.Failed++
+			result.FailedIDs = append(result.FailedIDs, id)
+			result.Results = append(result.Results, entry)
+			continue
+		}
+
+		entry.Success = true
+		result.Success++
+		result.SuccessIDs = append(result.SuccessIDs, id)
+		result.Results = append(result.Results, entry)
+	}
+
+	return result, nil
 }
 
 // Proxy management implementations

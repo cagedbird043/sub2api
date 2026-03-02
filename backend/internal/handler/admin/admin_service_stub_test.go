@@ -183,6 +183,20 @@ func (s *stubAdminService) RestoreAccountDefaultModelMapping(ctx context.Context
 	return &service.AccountEffectiveModelMapping{Source: service.ModelMappingSourceDefault, Mapping: map[string]string{}}, nil
 }
 
+func (s *stubAdminService) BatchRestoreAccountDefaultModelMapping(ctx context.Context, ids []int64) (*service.BulkUpdateAccountsResult, error) {
+	result := &service.BulkUpdateAccountsResult{
+		SuccessIDs: make([]int64, 0, len(ids)),
+		FailedIDs:  []int64{},
+		Results:    make([]service.BulkUpdateAccountResult, 0, len(ids)),
+	}
+	for _, id := range ids {
+		result.Success++
+		result.SuccessIDs = append(result.SuccessIDs, id)
+		result.Results = append(result.Results, service.BulkUpdateAccountResult{AccountID: id, Success: true})
+	}
+	return result, nil
+}
+
 func (s *stubAdminService) GetAccountsByIDs(ctx context.Context, ids []int64) ([]*service.Account, error) {
 	out := make([]*service.Account, 0, len(ids))
 	for _, id := range ids {

@@ -798,6 +798,10 @@ type BatchUpdateCredentialsRequest struct {
 	Value      any     `json:"value"`
 }
 
+type BatchRestoreDefaultModelMappingRequest struct {
+	AccountIDs []int64 `json:"account_ids" binding:"required,min=1"`
+}
+
 // BatchUpdateCredentials handles batch updating credentials fields
 // POST /api/v1/admin/accounts/batch-update-credentials
 func (h *AccountHandler) BatchUpdateCredentials(c *gin.Context) {
@@ -1540,4 +1544,20 @@ func (h *AccountHandler) RestoreDefaultModelMapping(c *gin.Context) {
 	}
 
 	response.Success(c, effectiveMapping)
+}
+
+func (h *AccountHandler) BatchRestoreDefaultModelMapping(c *gin.Context) {
+	var req BatchRestoreDefaultModelMappingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	result, err := h.adminService.BatchRestoreAccountDefaultModelMapping(c.Request.Context(), req.AccountIDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, result)
 }

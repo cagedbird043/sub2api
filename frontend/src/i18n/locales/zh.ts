@@ -1638,6 +1638,9 @@ export default {
       bulkSchedulableDisabled: '成功停止 {count} 个账号的调度',
       bulkSchedulablePartial: '部分调度更新成功：成功 {success} 个，失败 {failed} 个',
       bulkSchedulableResultUnknown: '批量调度结果不完整，请稍后重试或刷新列表',
+      bulkRestoreMappingSuccess: '成功恢复 {count} 个账号的默认映射',
+      bulkRestoreMappingPartial: '默认映射部分恢复成功：成功 {success} 个，失败 {failed} 个',
+      bulkRestoreMappingResultUnknown: '批量恢复结果不完整，请稍后重试或刷新列表',
       bulkActions: {
         selected: '已选择 {count} 个账号',
         selectCurrentPage: '本页全选',
@@ -1645,7 +1648,9 @@ export default {
         edit: '批量编辑账号',
         delete: '批量删除',
         enableScheduling: '批量启用调度',
-        disableScheduling: '批量停止调度'
+        disableScheduling: '批量停止调度',
+        restoreDefaultMapping: '一键恢复默认映射',
+        restoreDefaultMappingConfirm: '确定为选中的 {count} 个账号恢复默认模型映射吗？'
       },
       bulkEdit: {
         title: '批量编辑账号',

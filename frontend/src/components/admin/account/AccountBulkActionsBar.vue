@@ -22,6 +22,7 @@
       <button @click="$emit('delete')" class="btn btn-danger btn-sm">{{ t('admin.accounts.bulkActions.delete') }}</button>
       <button @click="$emit('toggle-schedulable', true)" class="btn btn-success btn-sm">{{ t('admin.accounts.bulkActions.enableScheduling') }}</button>
       <button @click="$emit('toggle-schedulable', false)" class="btn btn-warning btn-sm">{{ t('admin.accounts.bulkActions.disableScheduling') }}</button>
+      <button @click="$emit('restore-default-mapping')" class="btn btn-secondary btn-sm">{{ t('admin.accounts.bulkActions.restoreDefaultMapping') }}</button>
       <button @click="$emit('edit')" class="btn btn-primary btn-sm">{{ t('admin.accounts.bulkActions.edit') }}</button>
     </div>
   </div>
@@ -29,5 +30,17 @@
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-defineProps(['selectedIds']); defineEmits(['delete', 'edit', 'clear', 'select-page', 'toggle-schedulable']); const { t } = useI18n()
+
+defineProps<{ selectedIds: number[] }>()
+
+defineEmits<{
+  (e: 'delete'): void
+  (e: 'edit'): void
+  (e: 'clear'): void
+  (e: 'select-page'): void
+  (e: 'toggle-schedulable', value: boolean): void
+  (e: 'restore-default-mapping'): void
+}>()
+
+const { t } = useI18n()
 </script>

@@ -235,6 +235,7 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		accounts.GET("/antigravity/default-model-mapping", h.Admin.Account.GetAntigravityDefaultModelMapping)
 		accounts.GET("/:id/effective-model-mapping", h.Admin.Account.GetEffectiveModelMapping)
 		accounts.POST("/:id/restore-model-mapping-default", h.Admin.Account.RestoreDefaultModelMapping)
+		accounts.POST("/batch-restore-model-mapping-default", h.Admin.Account.BatchRestoreDefaultModelMapping)
 
 		// Claude OAuth routes
 		accounts.POST("/generate-auth-url", h.Admin.OAuth.GenerateAuthURL)

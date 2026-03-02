@@ -1490,6 +1490,9 @@ export default {
       bulkSchedulableDisabled: 'Successfully disabled scheduling for {count} account(s)',
       bulkSchedulablePartial: 'Scheduling updated partially: {success} succeeded, {failed} failed',
       bulkSchedulableResultUnknown: 'Bulk scheduling result incomplete. Please retry or refresh.',
+      bulkRestoreMappingSuccess: 'Restored default mapping for {count} account(s)',
+      bulkRestoreMappingPartial: 'Default mapping restored partially: {success} succeeded, {failed} failed',
+      bulkRestoreMappingResultUnknown: 'Bulk restore result incomplete. Please retry or refresh.',
       bulkActions: {
         selected: '{count} account(s) selected',
         selectCurrentPage: 'Select this page',
@@ -1497,7 +1500,9 @@ export default {
         edit: 'Bulk Edit',
         delete: 'Bulk Delete',
         enableScheduling: 'Enable Scheduling',
-        disableScheduling: 'Disable Scheduling'
+        disableScheduling: 'Disable Scheduling',
+        restoreDefaultMapping: 'Restore Default Mapping',
+        restoreDefaultMappingConfirm: 'Restore default model mapping for the selected {count} account(s)?'
       },
       bulkEdit: {
         title: 'Bulk Edit Accounts',

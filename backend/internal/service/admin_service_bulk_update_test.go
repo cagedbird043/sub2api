@@ -12,9 +12,12 @@ import (
 
 type accountRepoStubForBulkUpdate struct {
 	accountRepoStub
-	bulkUpdateErr    error
-	bulkUpdateIDs    []int64
-	bindGroupErrByID map[int64]error
+	bulkUpdateErr           error
+	bulkUpdateIDs           []int64
+	bindGroupErrByID        map[int64]error
+	removeCredentialErrByID map[int64]error
+	removedModelMappingIDs  []int64
+	removedModelMappingByID map[int64]int
 }
 
 func (s *accountRepoStubForBulkUpdate) BulkUpdate(_ context.Context, ids []int64, _ AccountBulkUpdate) (int64, error) {
@@ -27,6 +30,21 @@ func (s *accountRepoStubForBulkUpdate) BulkUpdate(_ context.Context, ids []int64
 
 func (s *accountRepoStubForBulkUpdate) BindGroups(_ context.Context, accountID int64, _ []int64) error {
 	if err, ok := s.bindGroupErrByID[accountID]; ok {
+		return err
+	}
+	return nil
+}
+
+func (s *accountRepoStubForBulkUpdate) RemoveCredentialKey(_ context.Context, id int64, key string) error {
+	if key != "model_mapping" {
+		return errors.New("unexpected credential key")
+	}
+	s.removedModelMappingIDs = append(s.removedModelMappingIDs, id)
+	if s.removedModelMappingByID == nil {
+		s.removedModelMappingByID = make(map[int64]int)
+	}
+	s.removedModelMappingByID[id]++
+	if err, ok := s.removeCredentialErrByID[id]; ok {
 		return err
 	}
 	return nil
@@ -77,4 +95,35 @@ func TestAdminService_BulkUpdateAccounts_PartialFailureIDs(t *testing.T) {
 	require.ElementsMatch(t, []int64{1, 3}, result.SuccessIDs)
 	require.ElementsMatch(t, []int64{2}, result.FailedIDs)
 	require.Len(t, result.Results, 3)
+}
+
+func TestAdminService_BatchRestoreAccountDefaultModelMapping_AllSuccess(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	result, err := svc.BatchRestoreAccountDefaultModelMapping(context.Background(), []int64{1, 2, 3})
+	require.NoError(t, err)
+	require.Equal(t, 3, result.Success)
+	require.Equal(t, 0, result.Failed)
+	require.ElementsMatch(t, []int64{1, 2, 3}, result.SuccessIDs)
+	require.Empty(t, result.FailedIDs)
+	require.Len(t, result.Results, 3)
+	require.Equal(t, []int64{1, 2, 3}, repo.removedModelMappingIDs)
+}
+
+func TestAdminService_BatchRestoreAccountDefaultModelMapping_PartialFailureAndDedup(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{
+		removeCredentialErrByID: map[int64]error{2: errors.New("not found")},
+	}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	result, err := svc.BatchRestoreAccountDefaultModelMapping(context.Background(), []int64{1, 2, 2, 3, 0, -1})
+	require.NoError(t, err)
+	require.Equal(t, 2, result.Success)
+	require.Equal(t, 1, result.Failed)
+	require.ElementsMatch(t, []int64{1, 3}, result.SuccessIDs)
+	require.ElementsMatch(t, []int64{2}, result.FailedIDs)
+	require.Len(t, result.Results, 3)
+	require.Equal(t, []int64{1, 2, 3}, repo.removedModelMappingIDs)
+	require.Equal(t, 1, repo.removedModelMappingByID[2])
 }
