@@ -231,8 +231,8 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		accounts.POST("/batch-refresh-tier", h.Admin.Account.BatchRefreshTier)
 		accounts.POST("/bulk-update", h.Admin.Account.BulkUpdate)
 
-		// Antigravity 默认模型映射
-		accounts.GET("/antigravity/default-model-mapping", h.Admin.Account.GetAntigravityDefaultModelMapping)
+		// 平台默认模型映射（antigravity / openai / gemini）
+		accounts.GET("/default-model-mapping/:platform", h.Admin.Account.GetPlatformDefaultModelMapping)
 		accounts.GET("/:id/effective-model-mapping", h.Admin.Account.GetEffectiveModelMapping)
 		accounts.POST("/:id/restore-model-mapping-default", h.Admin.Account.RestoreDefaultModelMapping)
 		accounts.POST("/batch-restore-model-mapping-default", h.Admin.Account.BatchRestoreDefaultModelMapping)

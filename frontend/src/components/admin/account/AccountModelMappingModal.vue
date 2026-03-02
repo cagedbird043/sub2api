@@ -254,10 +254,11 @@ const editableRows = ref<EditableMappingRow[]>([])
 
 const mappingRows = computed<MappingRow[]>(() => {
   const response = effectiveMappingResponse.value
-  if (!response || response.source === 'none') {
+  if (!response) {
     return []
   }
-
+  // source=none 表示账号使用平台默认映射，
+  // backend 在 GetAccountEffectiveModelMapping 中已将平台默认映射写入 response.mapping，直接展示即可。
   const source: 'custom' | 'default' = response.source === 'custom' ? 'custom' : 'default'
   return Object.entries(response.mapping)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -270,7 +271,9 @@ const deprecatedWarnings = computed(() => {
 })
 
 const showDefaultHint = computed(() => {
-  return props.account?.platform === 'antigravity' && effectiveMappingResponse.value?.source === 'default'
+  const src = effectiveMappingResponse.value?.source
+  // none / default 都表示正在使用平台默认映射
+  return props.account?.platform === 'antigravity' && (src === 'default' || src === 'none')
 })
 
 const canRestoreDefault = computed(() => effectiveMappingResponse.value?.source === 'custom')

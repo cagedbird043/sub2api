@@ -100,3 +100,49 @@ var DefaultAntigravityModelMapping = map[string]string{
 	"gpt-oss-120b-medium":    "gpt-oss-120b-medium",
 	"tab_flash_lite_preview": "tab_flash_lite_preview",
 }
+
+// DefaultOpenAIModelMapping 是 OpenAI 平台的默认模型映射
+// 当账号未配置 model_mapping 时使用此默认值（透传模式：from = to）
+var DefaultOpenAIModelMapping = map[string]string{
+	// GPT-5 系列
+	"gpt-5-2025-08-07": "gpt-5-2025-08-07",
+	"gpt-5":            "gpt-5-2025-08-07",
+	// GPT-5.1 系列
+	"gpt-5.1-2025-11-13": "gpt-5.1-2025-11-13",
+	"gpt-5.1-codex":      "gpt-5.1-codex",
+	"gpt-5.1-codex-max":  "gpt-5.1-codex-max",
+	"gpt-5.1-codex-mini": "gpt-5.1-codex-mini",
+	// GPT-5.2 系列
+	"gpt-5.2-2025-12-11": "gpt-5.2-2025-12-11",
+	"gpt-5.2-codex":      "gpt-5.2-codex",
+	// GPT-5.3 系列
+	"gpt-5.3-codex":       "gpt-5.3-codex",
+	"gpt-5.3-codex-spark": "gpt-5.3-codex-spark",
+}
+
+// DefaultGeminiModelMapping 是 Gemini 平台的默认模型映射
+// 当账号未配置 model_mapping 时使用此默认值（透传模式：from = to）
+var DefaultGeminiModelMapping = map[string]string{
+	// Gemini 2.5 系列
+	"gemini-2.5-flash":      "gemini-2.5-flash",
+	"gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
+	"gemini-2.5-pro":        "gemini-2.5-pro",
+	// Gemini 3 系列（Preview）
+	"gemini-3-flash-preview": "gemini-3-flash-preview",
+	"gemini-3-pro-preview":   "gemini-3.1-pro-preview", // 迁移：3-pro-preview 已弃用
+	"gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+}
+
+// GetPlatformDefaultModelMapping 返回平台的默认模型映射表。
+// 无默认映射的平台（如 anthropic）返回 nil。
+func GetPlatformDefaultModelMapping(platform string) map[string]string {
+	switch platform {
+	case PlatformAntigravity:
+		return DefaultAntigravityModelMapping
+	case PlatformOpenAI:
+		return DefaultOpenAIModelMapping
+	case PlatformGemini:
+		return DefaultGeminiModelMapping
+	}
+	return nil
+}

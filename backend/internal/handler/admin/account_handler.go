@@ -1510,10 +1510,16 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 	response.Success(c, results)
 }
 
-// GetAntigravityDefaultModelMapping 获取 Antigravity 平台的默认模型映射
-// GET /api/v1/admin/accounts/antigravity/default-model-mapping
-func (h *AccountHandler) GetAntigravityDefaultModelMapping(c *gin.Context) {
-	response.Success(c, domain.DefaultAntigravityModelMapping)
+// GetPlatformDefaultModelMapping 获取指定平台的默认模型映射
+// GET /api/v1/admin/accounts/:platform/default-model-mapping
+func (h *AccountHandler) GetPlatformDefaultModelMapping(c *gin.Context) {
+	platform := c.Param("platform")
+	mapping := domain.GetPlatformDefaultModelMapping(platform)
+	if mapping == nil {
+		response.Success(c, map[string]string{})
+		return
+	}
+	response.Success(c, mapping)
 }
 
 func (h *AccountHandler) GetEffectiveModelMapping(c *gin.Context) {

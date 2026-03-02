@@ -427,9 +427,9 @@ export async function importData(payload: {
  * Get Antigravity default model mapping from backend
  * @returns Default model mapping (from -> to)
  */
-export async function getAntigravityDefaultModelMapping(): Promise<Record<string, string>> {
+export async function getPlatformDefaultModelMapping(platform: string): Promise<Record<string, string>> {
   const { data } = await apiClient.get<Record<string, string>>(
-    '/admin/accounts/antigravity/default-model-mapping'
+    `/admin/accounts/default-model-mapping/${platform}`
   )
   return data
 }
@@ -528,7 +528,7 @@ export const accountsAPI = {
   syncFromCrs,
   exportData,
   importData,
-  getAntigravityDefaultModelMapping,
+  getPlatformDefaultModelMapping,
   getEffectiveModelMapping,
   restoreDefaultModelMapping,
   batchRestoreDefaultModelMapping

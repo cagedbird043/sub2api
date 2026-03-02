@@ -349,20 +349,13 @@ func parseTempUnschedInt(value any) int {
 }
 
 func (a *Account) GetModelMapping() map[string]string {
+	platformDefault := domain.GetPlatformDefaultModelMapping(a.Platform)
 	if a.Credentials == nil {
-		// Antigravity 平台使用默认映射
-		if a.Platform == domain.PlatformAntigravity {
-			return domain.DefaultAntigravityModelMapping
-		}
-		return nil
+		return platformDefault
 	}
 	raw, ok := a.Credentials["model_mapping"]
 	if !ok || raw == nil {
-		// Antigravity 平台使用默认映射
-		if a.Platform == domain.PlatformAntigravity {
-			return domain.DefaultAntigravityModelMapping
-		}
-		return nil
+		return platformDefault
 	}
 	if m, ok := raw.(map[string]any); ok {
 		result := make(map[string]string)
@@ -382,11 +375,7 @@ func (a *Account) GetModelMapping() map[string]string {
 			return result
 		}
 	}
-	// Antigravity 平台使用默认映射
-	if a.Platform == domain.PlatformAntigravity {
-		return domain.DefaultAntigravityModelMapping
-	}
-	return nil
+	return platformDefault
 }
 
 func ensureAntigravityDefaultPassthrough(mapping map[string]string, model string) {

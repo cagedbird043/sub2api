@@ -694,28 +694,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const antigravityDefaultMappingCache = ref<Record<string, string> | null>(null)
-
-const platformFallbackMappings: Record<string, Record<string, string>> = {
-  openai: {
-    'gpt-5.3-codex': 'gpt-5.3-codex',
-    'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
-    'gpt-5.2-2025-12-11': 'gpt-5.2-2025-12-11',
-    'gpt-5.2-codex': 'gpt-5.2-codex',
-    'gpt-5.1-codex': 'gpt-5.1-codex',
-    'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
-    'gpt-5.1-2025-11-13': 'gpt-5.1-2025-11-13'
-  },
-  gemini: {
-    'gemini-2.5-flash': 'gemini-2.5-flash',
-    'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
-    'gemini-2.5-pro': 'gemini-2.5-pro',
-    'gemini-3-flash-preview': 'gemini-3-flash-preview',
-    'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
-    'gemini-3.1-pro-preview-customtools': 'gemini-3.1-pro-preview-customtools',
-    'gemini-3.1-flash-image': 'gemini-3.1-flash-image'
-  }
-}
+// 每个平台的默认映射缓存（从后端 API 加载）
+const platformDefaultMappingCache = ref<Record<string, Record<string, string> | null>>({})
 
 // Platform awareness
 const isMixedPlatform = computed(() => props.selectedPlatforms.length > 1)
@@ -736,40 +716,30 @@ const readCustomModelMapping = (account: Account): Record<string, string> => {
   return mapping
 }
 
+// 读取账号的已有映射：有自定义映射则用自定义，否则用平台默认映射（source=none 语义上就是平台默认）
 const readExistingModelMapping = (account: Account): Record<string, string> => {
   const customMapping = readCustomModelMapping(account)
   if (Object.keys(customMapping).length > 0) {
     return customMapping
   }
-
-  if (account.platform === 'antigravity' && antigravityDefaultMappingCache.value) {
-    return { ...antigravityDefaultMappingCache.value }
-  }
-
-  return {}
+  // 返回平台默认映射（已缓存）；未缓存时返回 {}，会在 syncMappingEditorFromSelection 里异步加载
+  return { ...(platformDefaultMappingCache.value[account.platform] ?? {}) }
 }
 
-const getFallbackMappingByPlatform = (platform: string): Record<string, string> => {
-  if (platform === 'antigravity') {
-    return antigravityDefaultMappingCache.value ? { ...antigravityDefaultMappingCache.value } : {}
-  }
-  const fallback = platformFallbackMappings[platform]
-  if (!fallback) {
-    return {}
-  }
-  return { ...fallback }
+const getPlatformDefaultMappingCached = (platform: string): Record<string, string> => {
+  return { ...(platformDefaultMappingCache.value[platform] ?? {}) }
 }
 
-const ensureAntigravityDefaultMappingLoaded = async () => {
-  if (antigravityDefaultMappingCache.value) {
+const ensurePlatformDefaultMappingLoaded = async (platform: string): Promise<void> => {
+  if (platformDefaultMappingCache.value[platform] !== undefined) {
     return
   }
-
   try {
-    antigravityDefaultMappingCache.value = await adminAPI.accounts.getAntigravityDefaultModelMapping()
+    const mapping = await adminAPI.accounts.getPlatformDefaultModelMapping(platform)
+    platformDefaultMappingCache.value = { ...platformDefaultMappingCache.value, [platform]: mapping }
   } catch (error) {
-    console.error('Failed to load antigravity default mapping for bulk editor:', error)
-    antigravityDefaultMappingCache.value = {}
+    console.error(`Failed to load default mapping for platform ${platform}:`, error)
+    platformDefaultMappingCache.value = { ...platformDefaultMappingCache.value, [platform]: {} }
   }
 }
 
@@ -811,13 +781,15 @@ const syncMappingEditorFromSelection = async () => {
     return
   }
 
-  const needsAntigravityDefaultMapping = props.selectedAccounts.some((account) => {
-    return account.platform === 'antigravity' && Object.keys(readCustomModelMapping(account)).length === 0
-  })
-
-  if (needsAntigravityDefaultMapping) {
-    await ensureAntigravityDefaultMappingLoaded()
-  }
+  // 异步加载所有选中账号所属平台的默认映射（如果尚未缓存）
+  const platformsNeedingDefaults = [
+    ...new Set(
+      props.selectedAccounts
+        .filter((account) => Object.keys(readCustomModelMapping(account)).length === 0)
+        .map((account) => account.platform)
+    )
+  ]
+  await Promise.all(platformsNeedingDefaults.map(ensurePlatformDefaultMappingLoaded))
 
   modelRestrictionMode.value = 'mapping'
 
@@ -830,7 +802,7 @@ const syncMappingEditorFromSelection = async () => {
       to: item.to
     }))
   } else {
-    const fallback = singlePlatform ? getFallbackMappingByPlatform(singlePlatform) : {}
+    const fallback = singlePlatform ? getPlatformDefaultMappingCached(singlePlatform) : {}
     modelMappings.value = Object.entries(fallback)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([from, to]) => ({ from, to }))
@@ -1071,20 +1043,6 @@ const presetMappings = [
     from: 'gemini-3.1-pro-preview',
     to: 'gemini-3.1-pro-preview',
     color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400',
-    platforms: ['gemini']
-  },
-  {
-    label: '3.1-Pro-CustomTools透传',
-    from: 'gemini-3.1-pro-preview-customtools',
-    to: 'gemini-3.1-pro-preview-customtools',
-    color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400',
-    platforms: ['gemini']
-  },
-  {
-    label: '3.1-Flash-Image透传',
-    from: 'gemini-3.1-flash-image',
-    to: 'gemini-3.1-flash-image',
-    color: 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-400',
     platforms: ['gemini']
   },
   {

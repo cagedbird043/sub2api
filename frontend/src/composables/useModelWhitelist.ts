@@ -57,8 +57,6 @@ const geminiModels = [
   'gemini-3-flash-preview',
   'gemini-3-pro-preview',        // deprecated，3月9日下线，保留供白名单查看
   'gemini-3.1-pro-preview',
-  'gemini-3.1-pro-preview-customtools',
-  'gemini-3.1-flash-image'
 ]
 
 // Antigravity 官方支持的模型（精确匹配）
@@ -271,8 +269,6 @@ const geminiPresetMappings = [
   // 3 系列透传
   { label: '3-Flash-Preview', from: 'gemini-3-flash-preview', to: 'gemini-3-flash-preview', color: 'bg-lime-100 text-lime-700 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-400' },
   { label: '3.1-Pro-Preview', from: 'gemini-3.1-pro-preview', to: 'gemini-3.1-pro-preview', color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400' },
-  { label: '3.1-Pro-CustomTools', from: 'gemini-3.1-pro-preview-customtools', to: 'gemini-3.1-pro-preview-customtools', color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400' },
-  { label: '3.1-Flash-Image', from: 'gemini-3.1-flash-image', to: 'gemini-3.1-flash-image', color: 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-400' },
   // 迁移映射：将已弃用的 gemini-3-pro-preview 导向最新 3.1
   { label: '3-Pro-Preview→3.1', from: 'gemini-3-pro-preview', to: 'gemini-3.1-pro-preview', color: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400' }
 ]
@@ -308,7 +304,7 @@ const antigravityPresetMappings = [
 
 // Antigravity 默认映射（从后端 API 获取，与 constants.go 保持一致）
 // 使用 fetchAntigravityDefaultMappings() 异步获取
-import { getAntigravityDefaultModelMapping } from '@/api/admin/accounts'
+import { getPlatformDefaultModelMapping } from '@/api/admin/accounts'
 
 let _antigravityDefaultMappingsCache: { from: string; to: string }[] | null = null
 
@@ -317,7 +313,7 @@ export async function fetchAntigravityDefaultMappings(): Promise<{ from: string;
     return _antigravityDefaultMappingsCache
   }
   try {
-    const mapping = await getAntigravityDefaultModelMapping()
+    const mapping = await getPlatformDefaultModelMapping('antigravity')
     _antigravityDefaultMappingsCache = Object.entries(mapping).map(([from, to]) => ({ from, to }))
   } catch (e) {
     console.warn('[fetchAntigravityDefaultMappings] API failed, using empty fallback', e)
