@@ -1098,6 +1098,37 @@ func (r *accountRepository) UpdateExtra(ctx context.Context, id int64, updates m
 	return nil
 }
 
+func (r *accountRepository) RemoveCredentialKey(ctx context.Context, id int64, key string) error {
+	if key == "" {
+		return nil
+	}
+
+	client := clientFromContext(ctx, r.client)
+	result, err := client.ExecContext(
+		ctx,
+		"UPDATE accounts SET credentials = COALESCE(credentials, '{}'::jsonb) - $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL",
+		key,
+		id,
+	)
+	if err != nil {
+		return err
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAccountNotFound
+	}
+
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
+		log.Printf("[SchedulerOutbox] enqueue credential key removal failed: account=%d key=%s err=%v", id, key, err)
+	}
+
+	return nil
+}
+
 func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates service.AccountBulkUpdate) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil

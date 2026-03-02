@@ -1054,6 +1054,10 @@ func (s *stubAccountRepo) ListCRSAccountIDs(ctx context.Context) (map[string]int
 	return nil, errors.New("not implemented")
 }
 
+func (s *stubAccountRepo) RemoveCredentialKey(ctx context.Context, id int64, key string) error {
+	return errors.New("not implemented")
+}
+
 type stubProxyRepo struct{}
 
 func (stubProxyRepo) Create(ctx context.Context, proxy *service.Proxy) error {

@@ -434,6 +434,36 @@ export async function getAntigravityDefaultModelMapping(): Promise<Record<string
   return data
 }
 
+export interface AccountModelMappingDeprecation {
+  from: string
+  to: string
+  deprecated_model: string
+  suggested_model?: string
+  reason: string
+}
+
+export interface AccountEffectiveModelMappingResponse {
+  account_id: number
+  platform: string
+  source: 'none' | 'custom' | 'default'
+  mapping: Record<string, string>
+  deprecated_warnings?: AccountModelMappingDeprecation[]
+}
+
+export async function getEffectiveModelMapping(id: number): Promise<AccountEffectiveModelMappingResponse> {
+  const { data } = await apiClient.get<AccountEffectiveModelMappingResponse>(
+    `/admin/accounts/${id}/effective-model-mapping`
+  )
+  return data
+}
+
+export async function restoreDefaultModelMapping(id: number): Promise<AccountEffectiveModelMappingResponse> {
+  const { data } = await apiClient.post<AccountEffectiveModelMappingResponse>(
+    `/admin/accounts/${id}/restore-model-mapping-default`
+  )
+  return data
+}
+
 /**
  * Refresh OpenAI token using refresh token
  * @param refreshToken - The refresh token
@@ -482,7 +512,9 @@ export const accountsAPI = {
   syncFromCrs,
   exportData,
   importData,
-  getAntigravityDefaultModelMapping
+  getAntigravityDefaultModelMapping,
+  getEffectiveModelMapping,
+  restoreDefaultModelMapping
 }
 
 export default accountsAPI

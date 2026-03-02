@@ -166,6 +166,23 @@
           <template #cell-status="{ row }">
             <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
           </template>
+          <template #cell-mapping="{ row }">
+            <span
+              v-if="hasCustomModelMapping(row)"
+              class="badge bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300"
+            >
+              {{ t('admin.accounts.mappingSourceCustom') }}
+            </span>
+            <span
+              v-else-if="row.platform === 'antigravity'"
+              class="badge bg-gray-100 text-gray-700 dark:bg-dark-600 dark:text-gray-300"
+            >
+              {{ t('admin.accounts.mappingSourceDefault') }}
+            </span>
+            <span v-else class="badge bg-gray-100 text-gray-600 dark:bg-dark-600 dark:text-gray-300">
+              {{ t('admin.accounts.mappingSourceNone') }}
+            </span>
+          </template>
           <template #cell-schedulable="{ row }">
             <button @click="handleToggleSchedulable(row)" :disabled="togglingSchedulable === row.id" class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-dark-800" :class="[row.schedulable ? 'bg-primary-500 hover:bg-primary-600' : 'bg-gray-200 hover:bg-gray-300 dark:bg-dark-600 dark:hover:bg-dark-500']" :title="row.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled')">
               <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']" />
@@ -244,7 +261,8 @@
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="load" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
-    <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @reauth="handleReAuth" @refresh-token="handleRefresh" @reset-status="handleResetStatus" @clear-rate-limit="handleClearRateLimit" />
+    <AccountModelMappingModal :show="showModelMapping" :account="mappingAcc" @close="closeModelMappingModal" @restored="load" />
+    <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @view-mapping="handleViewModelMapping" @reauth="handleReAuth" @refresh-token="handleRefresh" @reset-status="handleResetStatus" @clear-rate-limit="handleClearRateLimit" />
     <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="reload" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal :show="showBulkEdit" :account-ids="selIds" :selected-platforms="selPlatforms" :proxies="proxies" :groups="groups" @close="showBulkEdit = false" @updated="handleBulkUpdated" />
@@ -282,6 +300,7 @@ import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
 import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vue'
 import AccountTestModal from '@/components/admin/account/AccountTestModal.vue'
 import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
+import AccountModelMappingModal from '@/components/admin/account/AccountModelMappingModal.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
@@ -320,6 +339,7 @@ const showDeleteDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
 const showStats = ref(false)
+const showModelMapping = ref(false)
 const showErrorPassthrough = ref(false)
 const edAcc = ref<Account | null>(null)
 const tempUnschedAcc = ref<Account | null>(null)
@@ -327,6 +347,7 @@ const deletingAcc = ref<Account | null>(null)
 const reAuthAcc = ref<Account | null>(null)
 const testingAcc = ref<Account | null>(null)
 const statsAcc = ref<Account | null>(null)
+const mappingAcc = ref<Account | null>(null)
 const togglingSchedulable = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
@@ -356,6 +377,17 @@ const autoRefreshIntervalLabel = (sec: number) => {
   if (sec === 15) return t('admin.accounts.refreshInterval15s')
   if (sec === 30) return t('admin.accounts.refreshInterval30s')
   return `${sec}s`
+}
+
+const hasCustomModelMapping = (account: Account): boolean => {
+  const rawMapping = account.credentials?.model_mapping
+  if (!rawMapping || typeof rawMapping !== 'object' || Array.isArray(rawMapping)) {
+    return false
+  }
+
+  return Object.entries(rawMapping as Record<string, unknown>).some(([key, value]) => {
+    return key.trim() !== '' && typeof value === 'string'
+  })
 }
 
 const loadSavedColumns = () => {
@@ -464,6 +496,7 @@ const isAnyModalOpen = computed(() => {
     showReAuth.value ||
     showTest.value ||
     showStats.value ||
+    showModelMapping.value ||
     showErrorPassthrough.value
   )
 })
@@ -500,6 +533,7 @@ const allColumns = computed(() => {
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
+    { key: 'mapping', label: t('admin.accounts.columns.modelMapping'), sortable: false },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
   ]
@@ -748,9 +782,11 @@ const handleExportData = async () => {
 }
 const closeTestModal = () => { showTest.value = false; testingAcc.value = null }
 const closeStatsModal = () => { showStats.value = false; statsAcc.value = null }
+const closeModelMappingModal = () => { showModelMapping.value = false; mappingAcc.value = null }
 const closeReAuthModal = () => { showReAuth.value = false; reAuthAcc.value = null }
 const handleTest = (a: Account) => { testingAcc.value = a; showTest.value = true }
 const handleViewStats = (a: Account) => { statsAcc.value = a; showStats.value = true }
+const handleViewModelMapping = (a: Account) => { mappingAcc.value = a; showModelMapping.value = true }
 const handleReAuth = (a: Account) => { reAuthAcc.value = a; showReAuth.value = true }
 const handleRefresh = async (a: Account) => { try { await adminAPI.accounts.refreshCredentials(a.id); load() } catch (error) { console.error('Failed to refresh credentials:', error) } }
 const handleResetStatus = async (a: Account) => { try { await adminAPI.accounts.clearError(a.id); appStore.showSuccess(t('common.success')); load() } catch (error) { console.error('Failed to reset status:', error) } }

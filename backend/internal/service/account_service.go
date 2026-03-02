@@ -62,6 +62,7 @@ type AccountRepository interface {
 	ClearModelRateLimits(ctx context.Context, id int64) error
 	UpdateSessionWindow(ctx context.Context, id int64, start, end *time.Time, status string) error
 	UpdateExtra(ctx context.Context, id int64, updates map[string]any) error
+	RemoveCredentialKey(ctx context.Context, id int64, key string) error
 	BulkUpdate(ctx context.Context, ids []int64, updates AccountBulkUpdate) (int64, error)
 }
 

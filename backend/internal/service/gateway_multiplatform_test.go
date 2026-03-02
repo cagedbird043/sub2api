@@ -80,6 +80,9 @@ func (m *mockAccountRepoForPlatform) GetByCRSAccountID(ctx context.Context, crsA
 func (m *mockAccountRepoForPlatform) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
 	return nil, nil
 }
+func (m *mockAccountRepoForPlatform) RemoveCredentialKey(ctx context.Context, id int64, key string) error {
+	return nil
+}
 func (m *mockAccountRepoForPlatform) Update(ctx context.Context, account *Account) error {
 	return nil
 }

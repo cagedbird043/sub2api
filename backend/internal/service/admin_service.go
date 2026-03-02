@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -49,6 +50,8 @@ type AdminService interface {
 	ClearAccountError(ctx context.Context, id int64) (*Account, error)
 	SetAccountError(ctx context.Context, id int64, errorMsg string) error
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
+	GetAccountEffectiveModelMapping(ctx context.Context, id int64) (*AccountEffectiveModelMapping, error)
+	RestoreAccountDefaultModelMapping(ctx context.Context, id int64) (*AccountEffectiveModelMapping, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
 
 	// Proxy management
@@ -227,6 +230,30 @@ type BulkUpdateAccountsResult struct {
 	SuccessIDs []int64                   `json:"success_ids"`
 	FailedIDs  []int64                   `json:"failed_ids"`
 	Results    []BulkUpdateAccountResult `json:"results"`
+}
+
+type ModelMappingSource string
+
+const (
+	ModelMappingSourceNone    ModelMappingSource = "none"
+	ModelMappingSourceCustom  ModelMappingSource = "custom"
+	ModelMappingSourceDefault ModelMappingSource = "default"
+)
+
+type AccountModelMappingDeprecation struct {
+	From            string `json:"from"`
+	To              string `json:"to"`
+	DeprecatedModel string `json:"deprecated_model"`
+	SuggestedModel  string `json:"suggested_model,omitempty"`
+	Reason          string `json:"reason"`
+}
+
+type AccountEffectiveModelMapping struct {
+	AccountID          int64                            `json:"account_id"`
+	Platform           string                           `json:"platform"`
+	Source             ModelMappingSource               `json:"source"`
+	Mapping            map[string]string                `json:"mapping"`
+	DeprecatedWarnings []AccountModelMappingDeprecation `json:"deprecated_warnings,omitempty"`
 }
 
 type CreateProxyInput struct {
@@ -1352,6 +1379,118 @@ func (s *adminServiceImpl) SetAccountSchedulable(ctx context.Context, id int64, 
 		return nil, err
 	}
 	return s.accountRepo.GetByID(ctx, id)
+}
+
+var deprecatedModelReplacements = map[string]struct {
+	Suggested string
+	Reason    string
+}{
+	"gemini-3-pro-preview":       {Suggested: "gemini-3.1-pro-high", Reason: "deprecated gemini preview model"},
+	"gemini-3-pro-preview-02-05": {Suggested: "gemini-3.1-pro-high", Reason: "deprecated gemini preview model"},
+	"claude-sonnet-4-5":          {Suggested: "claude-sonnet-4-6", Reason: "sonnet 4.5 has been sunset"},
+	"claude-sonnet-4-5-thinking": {Suggested: "claude-sonnet-4-6", Reason: "sonnet 4.5 has been sunset"},
+	"claude-sonnet-4-5-20250929": {Suggested: "claude-sonnet-4-6", Reason: "sonnet 4.5 has been sunset"},
+	"claude-opus-4-5":            {Suggested: "claude-opus-4-6-thinking", Reason: "opus 4.5 has been sunset"},
+	"claude-opus-4-5-thinking":   {Suggested: "claude-opus-4-6-thinking", Reason: "opus 4.5 has been sunset"},
+	"claude-opus-4-5-20251101":   {Suggested: "claude-opus-4-6-thinking", Reason: "opus 4.5 has been sunset"},
+}
+
+func hasCustomModelMapping(account *Account) bool {
+	if account == nil || account.Credentials == nil {
+		return false
+	}
+	raw, ok := account.Credentials["model_mapping"]
+	if !ok || raw == nil {
+		return false
+	}
+	mappingObj, ok := raw.(map[string]any)
+	if !ok {
+		return false
+	}
+	for key, value := range mappingObj {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		if _, ok := value.(string); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func buildDeprecatedWarnings(mapping map[string]string) []AccountModelMappingDeprecation {
+	warnings := make([]AccountModelMappingDeprecation, 0)
+	for from, to := range mapping {
+		if rule, ok := deprecatedModelReplacements[from]; ok {
+			warnings = append(warnings, AccountModelMappingDeprecation{
+				From:            from,
+				To:              to,
+				DeprecatedModel: from,
+				SuggestedModel:  rule.Suggested,
+				Reason:          rule.Reason,
+			})
+		}
+		if rule, ok := deprecatedModelReplacements[to]; ok {
+			warnings = append(warnings, AccountModelMappingDeprecation{
+				From:            from,
+				To:              to,
+				DeprecatedModel: to,
+				SuggestedModel:  rule.Suggested,
+				Reason:          rule.Reason,
+			})
+		}
+	}
+
+	sort.Slice(warnings, func(i, j int) bool {
+		if warnings[i].From != warnings[j].From {
+			return warnings[i].From < warnings[j].From
+		}
+		if warnings[i].To != warnings[j].To {
+			return warnings[i].To < warnings[j].To
+		}
+		return warnings[i].DeprecatedModel < warnings[j].DeprecatedModel
+	})
+
+	return warnings
+}
+
+func (s *adminServiceImpl) GetAccountEffectiveModelMapping(ctx context.Context, id int64) (*AccountEffectiveModelMapping, error) {
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	effective := account.GetModelMapping()
+	mapping := make(map[string]string)
+	for key, value := range effective {
+		if strings.TrimSpace(key) == "" {
+			continue
+		}
+		mapping[key] = value
+	}
+
+	source := ModelMappingSourceNone
+	if hasCustomModelMapping(account) {
+		source = ModelMappingSourceCustom
+	} else if len(mapping) > 0 {
+		source = ModelMappingSourceDefault
+	}
+
+	return &AccountEffectiveModelMapping{
+		AccountID:          account.ID,
+		Platform:           account.Platform,
+		Source:             source,
+		Mapping:            mapping,
+		DeprecatedWarnings: buildDeprecatedWarnings(mapping),
+	}, nil
+}
+
+func (s *adminServiceImpl) RestoreAccountDefaultModelMapping(ctx context.Context, id int64) (*AccountEffectiveModelMapping, error) {
+	if err := s.accountRepo.RemoveCredentialKey(ctx, id, "model_mapping"); err != nil {
+		return nil, err
+	}
+
+	return s.GetAccountEffectiveModelMapping(ctx, id)
 }
 
 // Proxy management implementations

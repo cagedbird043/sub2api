@@ -1509,3 +1509,35 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 func (h *AccountHandler) GetAntigravityDefaultModelMapping(c *gin.Context) {
 	response.Success(c, domain.DefaultAntigravityModelMapping)
 }
+
+func (h *AccountHandler) GetEffectiveModelMapping(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	effectiveMapping, err := h.adminService.GetAccountEffectiveModelMapping(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, effectiveMapping)
+}
+
+func (h *AccountHandler) RestoreDefaultModelMapping(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	effectiveMapping, err := h.adminService.RestoreAccountDefaultModelMapping(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, effectiveMapping)
+}

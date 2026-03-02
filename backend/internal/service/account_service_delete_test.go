@@ -58,6 +58,10 @@ func (s *accountRepoStub) ListCRSAccountIDs(ctx context.Context) (map[string]int
 	panic("unexpected ListCRSAccountIDs call")
 }
 
+func (s *accountRepoStub) RemoveCredentialKey(ctx context.Context, id int64, key string) error {
+	panic("unexpected RemoveCredentialKey call")
+}
+
 func (s *accountRepoStub) Update(ctx context.Context, account *Account) error {
 	panic("unexpected Update call")
 }

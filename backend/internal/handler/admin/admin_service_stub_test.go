@@ -175,6 +175,14 @@ func (s *stubAdminService) GetAccount(ctx context.Context, id int64) (*service.A
 	return &account, nil
 }
 
+func (s *stubAdminService) GetAccountEffectiveModelMapping(ctx context.Context, id int64) (*service.AccountEffectiveModelMapping, error) {
+	return &service.AccountEffectiveModelMapping{Source: service.ModelMappingSourceNone, Mapping: map[string]string{}}, nil
+}
+
+func (s *stubAdminService) RestoreAccountDefaultModelMapping(ctx context.Context, id int64) (*service.AccountEffectiveModelMapping, error) {
+	return &service.AccountEffectiveModelMapping{Source: service.ModelMappingSourceDefault, Mapping: map[string]string{}}, nil
+}
+
 func (s *stubAdminService) GetAccountsByIDs(ctx context.Context, ids []int64) ([]*service.Account, error) {
 	out := make([]*service.Account, 0, len(ids))
 	for _, id := range ids {

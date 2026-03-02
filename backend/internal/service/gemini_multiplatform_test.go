@@ -69,6 +69,9 @@ func (m *mockAccountRepoForGemini) GetByCRSAccountID(ctx context.Context, crsAcc
 func (m *mockAccountRepoForGemini) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
 	return nil, nil
 }
+func (m *mockAccountRepoForGemini) RemoveCredentialKey(ctx context.Context, id int64, key string) error {
+	return nil
+}
 func (m *mockAccountRepoForGemini) Update(ctx context.Context, account *Account) error { return nil }
 func (m *mockAccountRepoForGemini) Delete(ctx context.Context, id int64) error         { return nil }
 func (m *mockAccountRepoForGemini) List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
