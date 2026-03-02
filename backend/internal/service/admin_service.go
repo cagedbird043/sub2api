@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
@@ -1381,20 +1382,6 @@ func (s *adminServiceImpl) SetAccountSchedulable(ctx context.Context, id int64, 
 	return s.accountRepo.GetByID(ctx, id)
 }
 
-var deprecatedModelReplacements = map[string]struct {
-	Suggested string
-	Reason    string
-}{
-	"gemini-3-pro-preview":       {Suggested: "gemini-3.1-pro-high", Reason: "deprecated gemini preview model"},
-	"gemini-3-pro-preview-02-05": {Suggested: "gemini-3.1-pro-high", Reason: "deprecated gemini preview model"},
-	"claude-sonnet-4-5":          {Suggested: "claude-sonnet-4-6", Reason: "sonnet 4.5 has been sunset"},
-	"claude-sonnet-4-5-thinking": {Suggested: "claude-sonnet-4-6", Reason: "sonnet 4.5 has been sunset"},
-	"claude-sonnet-4-5-20250929": {Suggested: "claude-sonnet-4-6", Reason: "sonnet 4.5 has been sunset"},
-	"claude-opus-4-5":            {Suggested: "claude-opus-4-6-thinking", Reason: "opus 4.5 has been sunset"},
-	"claude-opus-4-5-thinking":   {Suggested: "claude-opus-4-6-thinking", Reason: "opus 4.5 has been sunset"},
-	"claude-opus-4-5-20251101":   {Suggested: "claude-opus-4-6-thinking", Reason: "opus 4.5 has been sunset"},
-}
-
 func hasCustomModelMapping(account *Account) bool {
 	if account == nil || account.Credentials == nil {
 		return false
@@ -1418,25 +1405,39 @@ func hasCustomModelMapping(account *Account) bool {
 	return false
 }
 
-func buildDeprecatedWarnings(mapping map[string]string) []AccountModelMappingDeprecation {
+func resolvePlatformTargetReplacement(platform, target string) (string, bool) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return "", false
+	}
+
+	if platform != PlatformAntigravity {
+		return "", false
+	}
+
+	suggested, ok := domain.DefaultAntigravityModelMapping[target]
+	if !ok {
+		return "", false
+	}
+
+	suggested = strings.TrimSpace(suggested)
+	if suggested == "" || suggested == target {
+		return "", false
+	}
+
+	return suggested, true
+}
+
+func buildDeprecatedWarnings(platform string, mapping map[string]string) []AccountModelMappingDeprecation {
 	warnings := make([]AccountModelMappingDeprecation, 0)
 	for from, to := range mapping {
-		if rule, ok := deprecatedModelReplacements[from]; ok {
-			warnings = append(warnings, AccountModelMappingDeprecation{
-				From:            from,
-				To:              to,
-				DeprecatedModel: from,
-				SuggestedModel:  rule.Suggested,
-				Reason:          rule.Reason,
-			})
-		}
-		if rule, ok := deprecatedModelReplacements[to]; ok {
+		if suggested, ok := resolvePlatformTargetReplacement(platform, to); ok {
 			warnings = append(warnings, AccountModelMappingDeprecation{
 				From:            from,
 				To:              to,
 				DeprecatedModel: to,
-				SuggestedModel:  rule.Suggested,
-				Reason:          rule.Reason,
+				SuggestedModel:  suggested,
+				Reason:          "target model has a newer platform mapping target",
 			})
 		}
 	}
@@ -1481,7 +1482,7 @@ func (s *adminServiceImpl) GetAccountEffectiveModelMapping(ctx context.Context, 
 		Platform:           account.Platform,
 		Source:             source,
 		Mapping:            mapping,
-		DeprecatedWarnings: buildDeprecatedWarnings(mapping),
+		DeprecatedWarnings: buildDeprecatedWarnings(account.Platform, mapping),
 	}, nil
 }
 

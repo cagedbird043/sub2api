@@ -184,7 +184,10 @@ const mappingRows = computed<MappingRow[]>(() => {
     .map(([from, to]) => ({ from, to, source }))
 })
 
-const deprecatedWarnings = computed(() => effectiveMappingResponse.value?.deprecated_warnings ?? [])
+const deprecatedWarnings = computed(() => {
+  const warnings = effectiveMappingResponse.value?.deprecated_warnings ?? []
+  return warnings.filter((warning) => warning.deprecated_model.trim() === warning.to.trim())
+})
 
 const showDefaultHint = computed(() => {
   return props.account?.platform === 'antigravity' && effectiveMappingResponse.value?.source === 'default'
@@ -207,6 +210,7 @@ const loadEffectiveMapping = async () => {
     return
   }
 
+  effectiveMappingResponse.value = null
   loadingMapping.value = true
   try {
     effectiveMappingResponse.value = await adminAPI.accounts.getEffectiveModelMapping(props.account.id)
