@@ -467,7 +467,6 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 func (s *AccountTestService) testAntigravityAccountConnection(c *gin.Context, account *Account, modelID string) error {
 	ctx := c.Request.Context()
 
-	// 默认模型：Claude 使用 claude-sonnet-4-5，Gemini 使用 gemini-3-pro-preview
 	testModelID := modelID
 	if testModelID == "" {
 		testModelID = "claude-sonnet-4-5"

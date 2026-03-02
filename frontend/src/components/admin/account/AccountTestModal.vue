@@ -2,7 +2,7 @@
   <BaseDialog
     :show="show"
     :title="t('admin.accounts.testAccountConnection')"
-    width="normal"
+    width="comfortable"
     @close="handleClose"
   >
     <div class="space-y-4">
@@ -47,12 +47,50 @@
         </label>
         <Select
           v-model="selectedModelId"
-          :options="availableModels"
+          :options="displayModels"
           :disabled="loadingModels || status === 'connecting'"
           value-key="id"
           label-key="display_name"
           :placeholder="loadingModels ? t('common.loading') + '...' : t('admin.accounts.selectTestModel')"
-        />
+        >
+          <template #selected="{ option }">
+            <span v-if="option" class="flex min-w-0 items-center gap-2">
+              <span class="truncate">{{ getOptionRequestLabel(option) }}</span>
+              <span
+                v-if="getOptionMappedTarget(option)"
+                class="inline-flex shrink-0 items-center rounded-md bg-primary-50 px-1.5 py-0.5 font-mono text-[11px] text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
+              >
+                {{ getOptionMappedTarget(option) }}
+              </span>
+            </span>
+            <span v-else class="text-gray-400 dark:text-gray-500">
+              {{ loadingModels ? t('common.loading') + '...' : t('admin.accounts.selectTestModel') }}
+            </span>
+          </template>
+
+          <template #option="{ option, selected }">
+            <div class="flex w-full min-w-0 items-center justify-between gap-2">
+              <div class="min-w-0">
+                <div class="truncate text-sm text-gray-900 dark:text-gray-100">{{ getOptionRequestLabel(option) }}</div>
+                <div v-if="getOptionMappedTarget(option)" class="truncate text-[11px] text-gray-500 dark:text-gray-400">
+                  {{ t('admin.accounts.mapsToModel') }}
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <span
+                  v-if="getOptionMappedTarget(option)"
+                  class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 dark:bg-dark-600 dark:text-gray-300"
+                >
+                  {{ getOptionMappedTarget(option) }}
+                </span>
+                <Icon v-if="selected" name="check" size="sm" class="text-primary-500" :stroke-width="2" />
+              </div>
+            </div>
+          </template>
+        </Select>
+        <p class="text-xs text-gray-500 dark:text-gray-400">
+          {{ t('admin.accounts.testModelMappingHint') }}
+        </p>
       </div>
 
       <!-- Terminal Output -->
@@ -172,7 +210,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -180,6 +218,7 @@ import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
 import { adminAPI } from '@/api/admin'
 import type { Account, ClaudeModel } from '@/types'
+import type { AccountEffectiveModelMappingResponse } from '@/api/admin/accounts'
 
 const { t } = useI18n()
 const { copyToClipboard } = useClipboard()
@@ -187,6 +226,13 @@ const { copyToClipboard } = useClipboard()
 interface OutputLine {
   text: string
   class: string
+}
+
+interface TestModelOption extends Record<string, unknown> {
+  id: string
+  display_name: string
+  request_label: string
+  mapped_target?: string
 }
 
 const props = defineProps<{
@@ -204,9 +250,132 @@ const outputLines = ref<OutputLine[]>([])
 const streamingContent = ref('')
 const errorMessage = ref('')
 const availableModels = ref<ClaudeModel[]>([])
+const effectiveMapping = ref<AccountEffectiveModelMappingResponse | null>(null)
 const selectedModelId = ref('')
 const loadingModels = ref(false)
 let eventSource: EventSource | null = null
+
+const defaultModelOrderByPlatform: Record<string, string[]> = {
+  anthropic: [
+    'claude-sonnet-4-6',
+    'claude-opus-4-6-thinking',
+    'claude-opus-4-6',
+    'claude-sonnet-4-5',
+    'claude-opus-4-5'
+  ],
+  antigravity: [
+    'claude-sonnet-4-6',
+    'claude-opus-4-6-thinking',
+    'gemini-3.1-pro-high',
+    'gemini-3.1-pro-low',
+    'gemini-3-flash',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash'
+  ],
+  gemini: [
+    'gemini-3.1-pro-preview',
+    'gemini-3-pro-preview',
+    'gemini-3-flash-preview',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash'
+  ],
+  openai: [
+    'gpt-5.1-codex-max',
+    'gpt-5.1-codex',
+    'gpt-5.1',
+    'gpt-5-mini'
+  ]
+}
+
+const modelSortScore = (platform: string, id: string, index: number): number => {
+  const preferred = defaultModelOrderByPlatform[platform] ?? []
+  const preferredIndex = preferred.indexOf(id)
+  if (preferredIndex >= 0) {
+    return preferredIndex
+  }
+  if (id.includes('3.1') || id.includes('4-6') || id.includes('5.1')) {
+    return 100 + index
+  }
+  if (id.includes('3') || id.includes('4-5') || id.includes('5-')) {
+    return 200 + index
+  }
+  return 300 + index
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === 'object' && value !== null
+}
+
+const getOptionRequestLabel = (option: unknown): string => {
+  if (!isRecord(option)) {
+    return ''
+  }
+
+  const requestLabel = option.request_label
+  if (typeof requestLabel === 'string' && requestLabel.trim() !== '') {
+    return requestLabel
+  }
+
+  const fallbackLabel = option.display_name
+  return typeof fallbackLabel === 'string' ? fallbackLabel : ''
+}
+
+const getOptionMappedTarget = (option: unknown): string => {
+  if (!isRecord(option)) {
+    return ''
+  }
+
+  const mappedTarget = option.mapped_target
+  if (typeof mappedTarget === 'string' && mappedTarget.trim() !== '') {
+    return mappedTarget
+  }
+
+  return ''
+}
+
+const displayModels = computed<TestModelOption[]>(() => {
+  const platform = props.account?.platform ?? ''
+  const sorted = [...availableModels.value]
+    .map((model, index) => ({ model, index }))
+    .sort((a, b) => {
+      const scoreA = modelSortScore(platform, a.model.id, a.index)
+      const scoreB = modelSortScore(platform, b.model.id, b.index)
+      if (scoreA !== scoreB) {
+        return scoreA - scoreB
+      }
+      return a.model.id.localeCompare(b.model.id)
+    })
+    .map(({ model }) => {
+      const requestLabel = model.display_name || model.id
+      const mappedTarget = effectiveMapping.value?.mapping?.[model.id]
+      const targetLabel = mappedTarget && mappedTarget !== model.id ? mappedTarget : ''
+
+      return {
+        id: model.id,
+        display_name: targetLabel ? `${requestLabel} ${targetLabel}` : requestLabel,
+        request_label: requestLabel,
+        mapped_target: targetLabel
+      }
+    })
+
+  return sorted
+})
+
+const pickPreferredModelID = (platform: string, models: ClaudeModel[]): string => {
+  if (models.length === 0) {
+    return ''
+  }
+
+  const preferred = defaultModelOrderByPlatform[platform] ?? []
+  for (const modelID of preferred) {
+    const matched = models.find((model) => model.id === modelID)
+    if (matched) {
+      return matched.id
+    }
+  }
+
+  return models[0].id
+}
 
 // Load available models when modal opens
 watch(
@@ -226,23 +395,18 @@ const loadAvailableModels = async () => {
 
   loadingModels.value = true
   selectedModelId.value = '' // Reset selection before loading
+  effectiveMapping.value = null
   try {
-    availableModels.value = await adminAPI.accounts.getAvailableModels(props.account.id)
-    // Default selection by platform
+    const [models, mapping] = await Promise.all([
+      adminAPI.accounts.getAvailableModels(props.account.id),
+      adminAPI.accounts.getEffectiveModelMapping(props.account.id).catch(() => null)
+    ])
+
+    availableModels.value = models
+    effectiveMapping.value = mapping
+
     if (availableModels.value.length > 0) {
-      if (props.account.platform === 'gemini') {
-        const preferred =
-          availableModels.value.find((m) => m.id === 'gemini-2.0-flash') ||
-          availableModels.value.find((m) => m.id === 'gemini-2.5-flash') ||
-          availableModels.value.find((m) => m.id === 'gemini-2.5-pro') ||
-          availableModels.value.find((m) => m.id === 'gemini-3-flash-preview') ||
-          availableModels.value.find((m) => m.id === 'gemini-3-pro-preview')
-        selectedModelId.value = preferred?.id || availableModels.value[0].id
-      } else {
-        // Try to select Sonnet as default, otherwise use first model
-        const sonnetModel = availableModels.value.find((m) => m.id.includes('sonnet'))
-        selectedModelId.value = sonnetModel?.id || availableModels.value[0].id
-      }
+      selectedModelId.value = pickPreferredModelID(props.account.platform, availableModels.value)
     }
   } catch (error) {
     console.error('Failed to load available models:', error)

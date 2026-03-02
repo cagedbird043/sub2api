@@ -120,18 +120,19 @@ type UpdateAccountRequest struct {
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
 type BulkUpdateAccountsRequest struct {
-	AccountIDs              []int64        `json:"account_ids" binding:"required,min=1"`
-	Name                    string         `json:"name"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             *int           `json:"concurrency"`
-	Priority                *int           `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	Schedulable             *bool          `json:"schedulable"`
-	GroupIDs                *[]int64       `json:"group_ids"`
-	Credentials             map[string]any `json:"credentials"`
-	Extra                   map[string]any `json:"extra"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	AccountIDs               []int64        `json:"account_ids" binding:"required,min=1"`
+	Name                     string         `json:"name"`
+	ProxyID                  *int64         `json:"proxy_id"`
+	Concurrency              *int           `json:"concurrency"`
+	Priority                 *int           `json:"priority"`
+	RateMultiplier           *float64       `json:"rate_multiplier"`
+	Status                   string         `json:"status" binding:"omitempty,oneof=active inactive error"`
+	Schedulable              *bool          `json:"schedulable"`
+	GroupIDs                 *[]int64       `json:"group_ids"`
+	Credentials              map[string]any `json:"credentials"`
+	EditExistingModelMapping bool           `json:"edit_existing_model_mapping"`
+	Extra                    map[string]any `json:"extra"`
+	ConfirmMixedChannelRisk  *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
 // AccountWithConcurrency extends Account with real-time concurrency info
@@ -916,18 +917,19 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 
 	result, err := h.adminService.BulkUpdateAccounts(c.Request.Context(), &service.BulkUpdateAccountsInput{
-		AccountIDs:            req.AccountIDs,
-		Name:                  req.Name,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency,
-		Priority:              req.Priority,
-		RateMultiplier:        req.RateMultiplier,
-		Status:                req.Status,
-		Schedulable:           req.Schedulable,
-		GroupIDs:              req.GroupIDs,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		SkipMixedChannelCheck: skipCheck,
+		AccountIDs:               req.AccountIDs,
+		Name:                     req.Name,
+		ProxyID:                  req.ProxyID,
+		Concurrency:              req.Concurrency,
+		Priority:                 req.Priority,
+		RateMultiplier:           req.RateMultiplier,
+		Status:                   req.Status,
+		Schedulable:              req.Schedulable,
+		GroupIDs:                 req.GroupIDs,
+		Credentials:              req.Credentials,
+		EditExistingModelMapping: req.EditExistingModelMapping,
+		Extra:                    req.Extra,
+		SkipMixedChannelCheck:    skipCheck,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

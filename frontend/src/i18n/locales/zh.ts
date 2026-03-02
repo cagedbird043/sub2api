@@ -1491,8 +1491,12 @@ export default {
       copyMappingJson: '复制映射 JSON',
       mappingJsonCopied: '映射 JSON 已复制',
       restoreDefaultMapping: '恢复默认映射',
+      editMapping: '修改已有映射',
       restoreDefaultMappingSuccess: '已恢复默认映射',
       restoreDefaultMappingFailed: '恢复默认映射失败',
+      mappingEditSaved: '模型映射已更新',
+      mappingEditSaveFailed: '模型映射更新失败',
+      mappingEditEmptyError: '请至少保留一条有效映射规则',
       loadMappingFailed: '加载映射详情失败',
       noAccountsYet: '暂无账号',
       createFirstAccount: '添加 AI 平台账号以开始使用 API 网关。',
@@ -1664,7 +1668,10 @@ export default {
         failed: '批量更新失败',
         noSelection: '请选择要编辑的账号',
         noFieldsSelected: '请至少选择一个要更新的字段',
-        mixedPlatformWarning: '所选账号跨越多个平台（{platforms}）。显示的模型映射预设为合并结果——请确保映射对每个平台都适用。'
+        mixedPlatformWarning: '所选账号跨越多个平台（{platforms}）。显示的模型映射预设为合并结果——请确保映射对每个平台都适用。',
+        existingMappingEditLocked: '修改已有映射要求所选账号平台一致，且当前映射完全一致。',
+        existingMappingEditReady: '已满足修改已有映射条件：平台一致且当前映射一致。',
+        existingMappingEditFallback: '当前映射不一致，已允许使用平台默认映射作为起始进行编辑。'
       },
       bulkDeleteTitle: '批量删除账号',
       bulkDeleteConfirm: '确定要删除选中的 {count} 个账号吗？此操作无法撤销。',
@@ -2120,6 +2127,8 @@ export default {
       startingTestForAccount: '开始测试账号：{name}',
       testAccountTypeLabel: '账号类型：{type}',
       selectTestModel: '选择测试模型',
+      mapsToModel: '映射目标',
+      testModelMappingHint: '右侧标签显示该请求模型实际映射到的目标模型。',
       testModel: '测试模型',
       testPrompt: '提示词："hi"',
       // Stats Modal

@@ -83,6 +83,17 @@
           />
         </div>
 
+        <p
+          class="mb-3 text-xs"
+          :class="canEditExistingMapping ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'"
+        >
+          {{
+            canEditExistingMapping
+              ? t('admin.accounts.bulkEdit.existingMappingEditReady')
+              : t('admin.accounts.bulkEdit.existingMappingEditFallback')
+          }}
+        </p>
+
         <div
           id="bulk-edit-model-restriction-body"
           :class="!enableModelRestriction && 'pointer-events-none opacity-50'"
@@ -99,7 +110,7 @@
                   ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
-              @click="modelRestrictionMode = 'whitelist'"
+              @click="handleSelectRestrictionMode('whitelist')"
             >
               <svg
                 class="mr-1.5 inline h-4 w-4"
@@ -124,7 +135,7 @@
                   ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
-              @click="modelRestrictionMode = 'mapping'"
+              @click="handleSelectRestrictionMode('mapping')"
             >
               <svg
                 class="mr-1.5 inline h-4 w-4"
@@ -658,7 +669,7 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { Proxy as ProxyConfig, AdminGroup, AccountPlatform } from '@/types'
+import type { Proxy as ProxyConfig, AdminGroup, AccountPlatform, Account } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
@@ -669,6 +680,7 @@ interface Props {
   show: boolean
   accountIds: number[]
   selectedPlatforms: AccountPlatform[]
+  selectedAccounts: Account[]
   proxies: ProxyConfig[]
   groups: AdminGroup[]
 }
@@ -682,8 +694,152 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const appStore = useAppStore()
 
+const antigravityDefaultMappingCache = ref<Record<string, string> | null>(null)
+
+const platformFallbackMappings: Record<string, Record<string, string>> = {
+  openai: {
+    'gpt-5.3-codex': 'gpt-5.3-codex',
+    'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark',
+    'gpt-5.2-2025-12-11': 'gpt-5.2-2025-12-11',
+    'gpt-5.2-codex': 'gpt-5.2-codex',
+    'gpt-5.1-codex': 'gpt-5.1-codex',
+    'gpt-5.1-codex-max': 'gpt-5.1-codex-max',
+    'gpt-5.1-2025-11-13': 'gpt-5.1-2025-11-13'
+  },
+  gemini: {
+    'gemini-2.5-flash': 'gemini-2.5-flash',
+    'gemini-2.5-flash-lite': 'gemini-2.5-flash-lite',
+    'gemini-2.5-pro': 'gemini-2.5-pro',
+    'gemini-3-flash-preview': 'gemini-3-flash-preview',
+    'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
+    'gemini-3.1-pro-preview-customtools': 'gemini-3.1-pro-preview-customtools',
+    'gemini-3.1-flash-image': 'gemini-3.1-flash-image'
+  }
+}
+
 // Platform awareness
 const isMixedPlatform = computed(() => props.selectedPlatforms.length > 1)
+
+const readCustomModelMapping = (account: Account): Record<string, string> => {
+  const raw = account.credentials?.model_mapping
+  if (!raw || typeof raw !== 'object') {
+    return {}
+  }
+
+  const mapping: Record<string, string> = {}
+  Object.entries(raw).forEach(([from, to]) => {
+    if (typeof to === 'string' && from.trim() !== '' && to.trim() !== '') {
+      mapping[from] = to
+    }
+  })
+
+  return mapping
+}
+
+const readExistingModelMapping = (account: Account): Record<string, string> => {
+  const customMapping = readCustomModelMapping(account)
+  if (Object.keys(customMapping).length > 0) {
+    return customMapping
+  }
+
+  if (account.platform === 'antigravity' && antigravityDefaultMappingCache.value) {
+    return { ...antigravityDefaultMappingCache.value }
+  }
+
+  return {}
+}
+
+const getFallbackMappingByPlatform = (platform: string): Record<string, string> => {
+  if (platform === 'antigravity') {
+    return antigravityDefaultMappingCache.value ? { ...antigravityDefaultMappingCache.value } : {}
+  }
+  const fallback = platformFallbackMappings[platform]
+  if (!fallback) {
+    return {}
+  }
+  return { ...fallback }
+}
+
+const ensureAntigravityDefaultMappingLoaded = async () => {
+  if (antigravityDefaultMappingCache.value) {
+    return
+  }
+
+  try {
+    antigravityDefaultMappingCache.value = await adminAPI.accounts.getAntigravityDefaultModelMapping()
+  } catch (error) {
+    console.error('Failed to load antigravity default mapping for bulk editor:', error)
+    antigravityDefaultMappingCache.value = {}
+  }
+}
+
+const buildMappingSignature = (mapping: Record<string, string>): string => {
+  const keys = Object.keys(mapping).sort((a, b) => a.localeCompare(b))
+  return keys.map((key) => `${key}=${mapping[key]}`).join('\n')
+}
+
+const canEditExistingMapping = computed(() => {
+  if (props.selectedAccounts.length === 0) {
+    return false
+  }
+
+  const platform = props.selectedAccounts[0].platform
+  const signature = buildMappingSignature(readExistingModelMapping(props.selectedAccounts[0]))
+
+  return props.selectedAccounts.every((account) => {
+    return account.platform === platform && buildMappingSignature(readExistingModelMapping(account)) === signature
+  })
+})
+
+const commonExistingMappings = computed<ModelMapping[]>(() => {
+  if (!canEditExistingMapping.value || props.selectedAccounts.length === 0) {
+    return []
+  }
+
+  const mapping = readExistingModelMapping(props.selectedAccounts[0])
+  return Object.entries(mapping)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([from, to]) => ({ from, to }))
+})
+
+const handleSelectRestrictionMode = (mode: 'whitelist' | 'mapping') => {
+  modelRestrictionMode.value = mode
+}
+
+const syncMappingEditorFromSelection = async () => {
+  if (!enableModelRestriction.value) {
+    return
+  }
+
+  const needsAntigravityDefaultMapping = props.selectedAccounts.some((account) => {
+    return account.platform === 'antigravity' && Object.keys(readCustomModelMapping(account)).length === 0
+  })
+
+  if (needsAntigravityDefaultMapping) {
+    await ensureAntigravityDefaultMappingLoaded()
+  }
+
+  modelRestrictionMode.value = 'mapping'
+
+  const uniquePlatforms = Array.from(new Set(props.selectedAccounts.map((account) => account.platform)))
+  const singlePlatform = uniquePlatforms.length === 1 ? uniquePlatforms[0] : ''
+
+  if (canEditExistingMapping.value) {
+    modelMappings.value = commonExistingMappings.value.map((item) => ({
+      from: item.from,
+      to: item.to
+    }))
+  } else {
+    const fallback = singlePlatform ? getFallbackMappingByPlatform(singlePlatform) : {}
+    modelMappings.value = Object.entries(fallback)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([from, to]) => ({ from, to }))
+  }
+
+  if (modelMappings.value.length === 0) {
+    modelMappings.value.push({ from: '', to: '' })
+  }
+}
 
 const platformModelPrefix: Record<string, string[]> = {
   anthropic: ['claude-'],
@@ -735,7 +891,7 @@ const enableGroups = ref(false)
 // State - field values
 const submitting = ref(false)
 const baseUrl = ref('')
-const modelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
+const modelRestrictionMode = ref<'whitelist' | 'mapping'>('mapping')
 const allowedModels = ref<string[]>([])
 const modelMappings = ref<ModelMapping[]>([])
 const selectedErrorCodes = ref<number[]>([])
@@ -1130,22 +1286,11 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   if (enableModelRestriction.value) {
     const modelMapping = buildModelMappingObject()
 
-    // 统一使用 model_mapping 字段
-    if (modelRestrictionMode.value === 'whitelist') {
-      if (allowedModels.value.length > 0) {
-        // 白名单模式：将模型转换为 model_mapping 格式（key=value）
-        const mapping: Record<string, string> = {}
-        for (const m of allowedModels.value) {
-          mapping[m] = m
-        }
-        credentials.model_mapping = mapping
-        credentialsChanged = true
-      }
-    } else {
-      if (modelMapping) {
-        credentials.model_mapping = modelMapping
-        credentialsChanged = true
-      }
+    if (modelMapping) {
+      credentials.model_mapping = modelMapping
+      credentialsChanged = true
+      updates.edit_existing_model_mapping =
+        modelRestrictionMode.value === 'mapping' && canEditExistingMapping.value
     }
   }
 
@@ -1229,6 +1374,23 @@ const handleSubmit = async () => {
 
 // Reset form when modal closes
 watch(
+  () => [enableModelRestriction.value, canEditExistingMapping.value, props.show] as const,
+  ([enabled, _eligible, show]) => {
+    if (!show) {
+      return
+    }
+
+    if (!enabled) {
+      modelMappings.value = []
+      return
+    }
+
+    void syncMappingEditorFromSelection()
+  },
+  { immediate: true }
+)
+
+watch(
   () => props.show,
   (newShow) => {
     if (!newShow) {
@@ -1246,7 +1408,7 @@ watch(
 
       // Reset all values
       baseUrl.value = ''
-      modelRestrictionMode.value = 'whitelist'
+      modelRestrictionMode.value = 'mapping'
       allowedModels.value = []
       modelMappings.value = []
       selectedErrorCodes.value = []

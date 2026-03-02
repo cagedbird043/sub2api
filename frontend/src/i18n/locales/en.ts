@@ -1478,8 +1478,12 @@ export default {
       copyMappingJson: 'Copy Mapping JSON',
       mappingJsonCopied: 'Mapping JSON copied',
       restoreDefaultMapping: 'Restore Default Mapping',
+      editMapping: 'Edit Existing Mapping',
       restoreDefaultMappingSuccess: 'Default mapping restored',
       restoreDefaultMappingFailed: 'Failed to restore default mapping',
+      mappingEditSaved: 'Model mapping updated',
+      mappingEditSaveFailed: 'Failed to update model mapping',
+      mappingEditEmptyError: 'Please keep at least one valid mapping rule',
       loadMappingFailed: 'Failed to load mapping details',
       noAccountsYet: 'No accounts yet',
       createFirstAccount: 'Create your first account to start using AI services.',
@@ -1517,7 +1521,10 @@ export default {
         failed: 'Bulk update failed',
         noSelection: 'Please select accounts to edit',
         noFieldsSelected: 'Select at least one field to update',
-        mixedPlatformWarning: 'Selected accounts span multiple platforms ({platforms}). Model mapping presets shown are combined — ensure mappings are appropriate for each platform.'
+        mixedPlatformWarning: 'Selected accounts span multiple platforms ({platforms}). Model mapping presets shown are combined — ensure mappings are appropriate for each platform.',
+        existingMappingEditLocked: 'Editing existing mapping requires selected accounts to have the same platform and the same current mapping.',
+        existingMappingEditReady: 'Editing existing mapping is enabled: selected accounts share platform and current mapping.',
+        existingMappingEditFallback: 'Current mappings differ. You can still edit with platform fallback mapping as the starting point.'
       },
       bulkDeleteTitle: 'Bulk Delete Accounts',
       bulkDeleteConfirm: 'Delete the selected {count} account(s)? This action cannot be undone.',
@@ -1987,6 +1994,8 @@ export default {
       startingTestForAccount: 'Starting test for account: {name}',
       testAccountTypeLabel: 'Account type: {type}',
       selectTestModel: 'Select Test Model',
+      mapsToModel: 'Mapped target',
+      testModelMappingHint: 'The right-side badge shows the actual mapped target model.',
       testModel: 'Test model',
       testPrompt: 'Prompt: "hi"',
       // Stats Modal

@@ -215,7 +215,8 @@ type BulkUpdateAccountsInput struct {
 	Extra          map[string]any
 	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
 	// This should only be set when the caller has explicitly confirmed the risk.
-	SkipMixedChannelCheck bool
+	SkipMixedChannelCheck    bool
+	EditExistingModelMapping bool
 }
 
 // BulkUpdateAccountResult captures the result for a single account update.
@@ -1265,6 +1266,10 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 
+	if err := s.validateBulkModelMappingEdit(ctx, input); err != nil {
+		return nil, err
+	}
+
 	// Prepare bulk updates for columns and JSONB fields.
 	repoUpdates := AccountBulkUpdate{
 		Credentials: input.Credentials,
@@ -1344,6 +1349,75 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	}
 
 	return result, nil
+}
+
+func normalizeModelMappingSignature(mapping map[string]string) string {
+	if len(mapping) == 0 {
+		return ""
+	}
+
+	keys := make([]string, 0, len(mapping))
+	for key := range mapping {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, key+"="+mapping[key])
+	}
+
+	return strings.Join(parts, "\n")
+}
+
+func containsModelMappingUpdate(credentials map[string]any) bool {
+	if len(credentials) == 0 {
+		return false
+	}
+	_, exists := credentials["model_mapping"]
+	return exists
+}
+
+func (s *adminServiceImpl) validateBulkModelMappingEdit(ctx context.Context, input *BulkUpdateAccountsInput) error {
+	if input == nil || !input.EditExistingModelMapping || !containsModelMappingUpdate(input.Credentials) || len(input.AccountIDs) == 0 {
+		return nil
+	}
+
+	accounts, err := s.accountRepo.GetByIDs(ctx, input.AccountIDs)
+	if err != nil {
+		return err
+	}
+	if len(accounts) != len(input.AccountIDs) {
+		return errors.New("all selected accounts must exist to edit model mapping")
+	}
+
+	var baselinePlatform string
+	var baselineSignature string
+	baselineSet := false
+
+	for _, account := range accounts {
+		if account == nil {
+			return errors.New("all selected accounts must exist to edit model mapping")
+		}
+
+		signature := normalizeModelMappingSignature(account.GetModelMapping())
+		if !baselineSet {
+			baselinePlatform = account.Platform
+			baselineSignature = signature
+			baselineSet = true
+			continue
+		}
+
+		if account.Platform != baselinePlatform {
+			return errors.New("bulk model mapping edit requires all selected accounts to use the same platform")
+		}
+
+		if signature != baselineSignature {
+			return errors.New("bulk model mapping edit requires all selected accounts to have the same existing mapping")
+		}
+	}
+
+	return nil
 }
 
 func (s *adminServiceImpl) DeleteAccount(ctx context.Context, id int64) error {

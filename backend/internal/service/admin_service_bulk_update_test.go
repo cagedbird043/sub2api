@@ -18,6 +18,7 @@ type accountRepoStubForBulkUpdate struct {
 	removeCredentialErrByID map[int64]error
 	removedModelMappingIDs  []int64
 	removedModelMappingByID map[int64]int
+	accountsByID            map[int64]*Account
 }
 
 func (s *accountRepoStubForBulkUpdate) BulkUpdate(_ context.Context, ids []int64, _ AccountBulkUpdate) (int64, error) {
@@ -33,6 +34,18 @@ func (s *accountRepoStubForBulkUpdate) BindGroups(_ context.Context, accountID i
 		return err
 	}
 	return nil
+}
+
+func (s *accountRepoStubForBulkUpdate) GetByIDs(_ context.Context, ids []int64) ([]*Account, error) {
+	accounts := make([]*Account, 0, len(ids))
+	for _, id := range ids {
+		account, ok := s.accountsByID[id]
+		if !ok {
+			return nil, errors.New("account not found")
+		}
+		accounts = append(accounts, account)
+	}
+	return accounts, nil
 }
 
 func (s *accountRepoStubForBulkUpdate) RemoveCredentialKey(_ context.Context, id int64, key string) error {
@@ -126,4 +139,104 @@ func TestAdminService_BatchRestoreAccountDefaultModelMapping_PartialFailureAndDe
 	require.Len(t, result.Results, 3)
 	require.Equal(t, []int64{1, 2, 3}, repo.removedModelMappingIDs)
 	require.Equal(t, 1, repo.removedModelMappingByID[2])
+}
+
+func TestAdminService_BulkUpdateAccounts_ModelMappingEditRequiresSamePlatformAndMapping(t *testing.T) {
+	t.Run("allows edit when platform and mapping are identical", func(t *testing.T) {
+		repo := &accountRepoStubForBulkUpdate{
+			accountsByID: map[int64]*Account{
+				1: {
+					ID:       1,
+					Platform: PlatformAnthropic,
+					Credentials: map[string]any{
+						"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-6"},
+					},
+				},
+				2: {
+					ID:       2,
+					Platform: PlatformAnthropic,
+					Credentials: map[string]any{
+						"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-6"},
+					},
+				},
+			},
+		}
+		svc := &adminServiceImpl{accountRepo: repo}
+
+		input := &BulkUpdateAccountsInput{
+			AccountIDs: []int64{1, 2},
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-6"},
+			},
+			EditExistingModelMapping: true,
+		}
+
+		result, err := svc.BulkUpdateAccounts(context.Background(), input)
+		require.NoError(t, err)
+		require.Equal(t, 2, result.Success)
+		require.Equal(t, []int64{1, 2}, repo.bulkUpdateIDs)
+	})
+
+	t.Run("rejects edit when platforms differ", func(t *testing.T) {
+		repo := &accountRepoStubForBulkUpdate{
+			accountsByID: map[int64]*Account{
+				1: {ID: 1, Platform: PlatformAnthropic, Credentials: map[string]any{"model_mapping": map[string]any{"a": "a"}}},
+				2: {ID: 2, Platform: PlatformOpenAI, Credentials: map[string]any{"model_mapping": map[string]any{"a": "a"}}},
+			},
+		}
+		svc := &adminServiceImpl{accountRepo: repo}
+
+		_, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+			AccountIDs: []int64{1, 2},
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{"a": "b"},
+			},
+			EditExistingModelMapping: true,
+		})
+
+		require.Error(t, err)
+		require.ErrorContains(t, err, "same platform")
+	})
+
+	t.Run("rejects edit when existing mappings differ", func(t *testing.T) {
+		repo := &accountRepoStubForBulkUpdate{
+			accountsByID: map[int64]*Account{
+				1: {ID: 1, Platform: PlatformAnthropic, Credentials: map[string]any{"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-6"}}},
+				2: {ID: 2, Platform: PlatformAnthropic, Credentials: map[string]any{"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-opus-4-6"}}},
+			},
+		}
+		svc := &adminServiceImpl{accountRepo: repo}
+
+		_, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+			AccountIDs: []int64{1, 2},
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{"claude-sonnet-4-5": "claude-sonnet-4-6"},
+			},
+			EditExistingModelMapping: true,
+		})
+
+		require.Error(t, err)
+		require.ErrorContains(t, err, "same existing mapping")
+	})
+
+	t.Run("does not enforce same mapping when strict edit flag is off", func(t *testing.T) {
+		repo := &accountRepoStubForBulkUpdate{
+			accountsByID: map[int64]*Account{
+				1: {ID: 1, Platform: PlatformOpenAI, Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5.1-codex": "gpt-5.1-codex"}}},
+				2: {ID: 2, Platform: PlatformOpenAI, Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5.2-codex": "gpt-5.2-codex"}}},
+			},
+		}
+		svc := &adminServiceImpl{accountRepo: repo}
+
+		result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+			AccountIDs: []int64{1, 2},
+			Credentials: map[string]any{
+				"model_mapping": map[string]any{"gpt-5.3-codex": "gpt-5.3-codex"},
+			},
+			EditExistingModelMapping: false,
+		})
+
+		require.NoError(t, err)
+		require.Equal(t, 2, result.Success)
+	})
 }

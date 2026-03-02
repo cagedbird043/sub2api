@@ -54,13 +54,13 @@
       </div>
 
       <div
-        v-else-if="mappingRows.length === 0"
+        v-else-if="mappingRows.length === 0 && !editingMapping"
         class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-600 dark:border-dark-600 dark:bg-dark-700/40 dark:text-gray-300"
       >
         {{ t('admin.accounts.noModelMappingConfigured') }}
       </div>
 
-      <div v-else class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-600">
+      <div v-else-if="!editingMapping" class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-600">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-dark-600">
           <thead class="bg-gray-50 dark:bg-dark-700/50">
             <tr>
@@ -95,16 +95,86 @@
           </tbody>
         </table>
       </div>
+
+      <div v-else class="space-y-3">
+        <div v-for="(row, index) in editableRows" :key="`${index}-${row.from}-${row.to}`" class="flex items-center gap-2">
+          <input
+            v-model="row.from"
+            type="text"
+            class="input flex-1"
+            :placeholder="t('admin.accounts.requestModel')"
+          />
+          <Icon name="arrowRight" size="sm" class="text-gray-400" />
+          <input
+            v-model="row.to"
+            type="text"
+            class="input flex-1"
+            :placeholder="t('admin.accounts.targetModel')"
+          />
+          <button
+            type="button"
+            class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+            @click="removeEditableRow(index)"
+          >
+            <Icon name="x" size="sm" />
+          </button>
+        </div>
+        <button
+          type="button"
+          class="w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+          @click="addEditableRow"
+        >
+          {{ t('admin.accounts.addMapping') }}
+        </button>
+      </div>
     </div>
 
     <template #footer>
       <div class="flex justify-end gap-3">
         <button
-          @click="handleRestoreDefaultMapping"
-          :disabled="!canRestoreDefault || restoringMapping || loadingMapping"
+          v-if="!editingMapping"
+          @click="startEditMapping"
+          :disabled="!canEditMapping || loadingMapping || restoringMapping || savingMapping"
           :class="[
             'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-            !canRestoreDefault || restoringMapping || loadingMapping
+            !canEditMapping || loadingMapping || restoringMapping || savingMapping
+              ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-dark-700 dark:text-dark-400'
+              : 'bg-primary-100 text-primary-700 hover:bg-primary-200 dark:bg-primary-900/30 dark:text-primary-300 dark:hover:bg-primary-900/50'
+          ]"
+        >
+          <Icon name="edit" size="sm" />
+          {{ t('admin.accounts.editMapping') }}
+        </button>
+        <button
+          v-if="editingMapping"
+          @click="cancelEditMapping"
+          :disabled="savingMapping"
+          class="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
+        >
+          <Icon name="x" size="sm" />
+          {{ t('common.cancel') }}
+        </button>
+        <button
+          v-if="editingMapping"
+          @click="handleSaveMapping"
+          :disabled="savingMapping"
+          :class="[
+            'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+            savingMapping
+              ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-dark-700 dark:text-dark-400'
+              : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50'
+          ]"
+        >
+          <Icon name="check" size="sm" />
+          {{ t('common.save') }}
+        </button>
+        <button
+          v-if="!editingMapping"
+          @click="handleRestoreDefaultMapping"
+          :disabled="!canRestoreDefault || restoringMapping || loadingMapping || savingMapping"
+          :class="[
+            'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
+            !canRestoreDefault || restoringMapping || loadingMapping || savingMapping
               ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-dark-700 dark:text-dark-400'
               : 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
           ]"
@@ -113,11 +183,12 @@
           {{ t('admin.accounts.restoreDefaultMapping') }}
         </button>
         <button
+          v-if="!editingMapping"
           @click="handleCopyMappingJson"
-          :disabled="loadingMapping || mappingRows.length === 0"
+          :disabled="loadingMapping || mappingRows.length === 0 || savingMapping"
           :class="[
             'inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors',
-            loadingMapping || mappingRows.length === 0
+            loadingMapping || mappingRows.length === 0 || savingMapping
               ? 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-dark-700 dark:text-dark-400'
               : 'bg-cyan-100 text-cyan-700 hover:bg-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-300 dark:hover:bg-cyan-900/50'
           ]"
@@ -154,6 +225,11 @@ interface MappingRow {
   source: 'custom' | 'default'
 }
 
+interface EditableMappingRow {
+  from: string
+  to: string
+}
+
 const props = defineProps<{
   show: boolean
   account: Account | null
@@ -162,6 +238,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'restored'): void
+  (e: 'updated'): void
 }>()
 
 const { t } = useI18n()
@@ -170,7 +247,10 @@ const { copyToClipboard } = useClipboard()
 
 const loadingMapping = ref(false)
 const restoringMapping = ref(false)
+const savingMapping = ref(false)
+const editingMapping = ref(false)
 const effectiveMappingResponse = ref<AccountEffectiveModelMappingResponse | null>(null)
+const editableRows = ref<EditableMappingRow[]>([])
 
 const mappingRows = computed<MappingRow[]>(() => {
   const response = effectiveMappingResponse.value
@@ -194,6 +274,10 @@ const showDefaultHint = computed(() => {
 })
 
 const canRestoreDefault = computed(() => effectiveMappingResponse.value?.source === 'custom')
+const canEditMapping = computed(() => {
+  const source = effectiveMappingResponse.value?.source
+  return source === 'custom' || source === 'default' || source === 'none'
+})
 
 const mappingJsonText = computed(() => {
   const response = effectiveMappingResponse.value
@@ -211,6 +295,8 @@ const loadEffectiveMapping = async () => {
   }
 
   effectiveMappingResponse.value = null
+  editingMapping.value = false
+  editableRows.value = []
   loadingMapping.value = true
   try {
     effectiveMappingResponse.value = await adminAPI.accounts.getEffectiveModelMapping(props.account.id)
@@ -239,6 +325,78 @@ const handleClose = () => {
   emit('close')
 }
 
+const startEditMapping = () => {
+  if (!canEditMapping.value) {
+    return
+  }
+
+  editableRows.value = mappingRows.value.map((row) => ({
+    from: row.from,
+    to: row.to
+  }))
+
+  if (editableRows.value.length === 0) {
+    editableRows.value.push({ from: '', to: '' })
+  }
+
+  editingMapping.value = true
+}
+
+const cancelEditMapping = () => {
+  editingMapping.value = false
+  editableRows.value = []
+}
+
+const addEditableRow = () => {
+  editableRows.value.push({ from: '', to: '' })
+}
+
+const removeEditableRow = (index: number) => {
+  editableRows.value.splice(index, 1)
+}
+
+const handleSaveMapping = async () => {
+  if (!props.account || !editingMapping.value) {
+    return
+  }
+
+  const mapping: Record<string, string> = {}
+  for (const row of editableRows.value) {
+    const from = row.from.trim()
+    const to = row.to.trim()
+    if (!from || !to) {
+      continue
+    }
+    mapping[from] = to
+  }
+
+  if (Object.keys(mapping).length === 0) {
+    appStore.showError(t('admin.accounts.mappingEditEmptyError'))
+    return
+  }
+
+  savingMapping.value = true
+  try {
+    await adminAPI.accounts.update(props.account.id, {
+      credentials: {
+        ...(props.account.credentials ?? {}),
+        model_mapping: mapping
+      }
+    })
+
+    appStore.showSuccess(t('admin.accounts.mappingEditSaved'))
+    editingMapping.value = false
+    editableRows.value = []
+    emit('updated')
+    await loadEffectiveMapping()
+  } catch (error) {
+    console.error('Failed to save model mapping:', error)
+    appStore.showError(t('admin.accounts.mappingEditSaveFailed'))
+  } finally {
+    savingMapping.value = false
+  }
+}
+
 const handleCopyMappingJson = async () => {
   if (mappingRows.value.length === 0) {
     return
@@ -247,7 +405,7 @@ const handleCopyMappingJson = async () => {
 }
 
 const handleRestoreDefaultMapping = async () => {
-  if (!props.account || !canRestoreDefault.value) {
+  if (!props.account || !canRestoreDefault.value || savingMapping.value) {
     return
   }
 
