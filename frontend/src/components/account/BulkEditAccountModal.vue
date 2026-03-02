@@ -687,7 +687,7 @@ const isMixedPlatform = computed(() => props.selectedPlatforms.length > 1)
 
 const platformModelPrefix: Record<string, string[]> = {
   anthropic: ['claude-'],
-  antigravity: ['claude-'],
+  antigravity: ['claude-', 'gemini-'],
   openai: ['gpt-'],
   gemini: ['gemini-'],
   sora: []
@@ -702,9 +702,16 @@ const filteredModels = computed(() => {
 
 const filteredPresets = computed(() => {
   if (props.selectedPlatforms.length === 0) return presetMappings
-  const prefixes = [...new Set(props.selectedPlatforms.flatMap(p => platformModelPrefix[p] || []))]
-  if (prefixes.length === 0) return presetMappings
-  return presetMappings.filter(m => prefixes.some(prefix => m.from.startsWith(prefix)))
+  return presetMappings.filter((m) => {
+    // 有 platforms 字段的条目，按平台精确匹配
+    if ((m as any).platforms) {
+      return (m as any).platforms.some((p: string) => (props.selectedPlatforms as string[]).includes(p))
+    }
+    // 无 platforms 字段（主要是 claude-/gpt- 等），退化为前缀匹配
+    const prefixes = [...new Set(props.selectedPlatforms.flatMap((p) => platformModelPrefix[p] || []))]
+    if (prefixes.length === 0) return true
+    return prefixes.some((prefix) => m.from.startsWith(prefix))
+  })
 })
 
 // Model mapping type
@@ -874,35 +881,106 @@ const presetMappings = [
     to: 'gpt-5.1-codex',
     color: 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-400'
   },
+  // ===== Gemini 原生平台按钮（platforms: ['gemini']）=====
   {
-    label: '3-Pro-Preview→3.1-Pro-High',
-    from: 'gemini-3-pro-preview',
-    to: 'gemini-3.1-pro-high',
-    color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400'
+    label: '2.5 Flash透传',
+    from: 'gemini-2.5-flash',
+    to: 'gemini-2.5-flash',
+    color: 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400',
+    platforms: ['gemini']
   },
+  {
+    label: '2.5 Flash-Lite透传',
+    from: 'gemini-2.5-flash-lite',
+    to: 'gemini-2.5-flash-lite',
+    color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400',
+    platforms: ['gemini']
+  },
+  {
+    label: '2.5 Pro透传',
+    from: 'gemini-2.5-pro',
+    to: 'gemini-2.5-pro',
+    color: 'bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400',
+    platforms: ['gemini']
+  },
+  {
+    label: '3-Flash-Preview透传',
+    from: 'gemini-3-flash-preview',
+    to: 'gemini-3-flash-preview',
+    color: 'bg-lime-100 text-lime-700 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-400',
+    platforms: ['gemini']
+  },
+  {
+    label: '3.1-Pro-Preview透传',
+    from: 'gemini-3.1-pro-preview',
+    to: 'gemini-3.1-pro-preview',
+    color: 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400',
+    platforms: ['gemini']
+  },
+  {
+    label: '3.1-Pro-CustomTools透传',
+    from: 'gemini-3.1-pro-preview-customtools',
+    to: 'gemini-3.1-pro-preview-customtools',
+    color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400',
+    platforms: ['gemini']
+  },
+  {
+    label: '3.1-Flash-Image透传',
+    from: 'gemini-3.1-flash-image',
+    to: 'gemini-3.1-flash-image',
+    color: 'bg-pink-100 text-pink-700 hover:bg-pink-200 dark:bg-pink-900/30 dark:text-pink-400',
+    platforms: ['gemini']
+  },
+  {
+    // gemini-3-pro-preview 已于 2026-03-09 弃用，导向最新的 3.1
+    label: '3-Pro-Preview→3.1',
+    from: 'gemini-3-pro-preview',
+    to: 'gemini-3.1-pro-preview',
+    color: 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400',
+    platforms: ['gemini']
+  },
+  // ===== Antigravity Gemini 模型按钮（platforms: ['antigravity']）=====
   {
     label: '3-Pro-High→3.1-Pro-High',
     from: 'gemini-3-pro-high',
     to: 'gemini-3.1-pro-high',
-    color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400'
+    color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400',
+    platforms: ['antigravity']
   },
   {
     label: '3-Pro-Low→3.1-Pro-Low',
     from: 'gemini-3-pro-low',
     to: 'gemini-3.1-pro-low',
-    color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400'
+    color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400',
+    platforms: ['antigravity']
+  },
+  {
+    label: '3.1-Pro-High透传',
+    from: 'gemini-3.1-pro-high',
+    to: 'gemini-3.1-pro-high',
+    color: 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400',
+    platforms: ['antigravity']
+  },
+  {
+    label: '3.1-Pro-Low透传',
+    from: 'gemini-3.1-pro-low',
+    to: 'gemini-3.1-pro-low',
+    color: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400',
+    platforms: ['antigravity']
   },
   {
     label: '3-Flash透传',
     from: 'gemini-3-flash',
     to: 'gemini-3-flash',
-    color: 'bg-lime-100 text-lime-700 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-400'
+    color: 'bg-lime-100 text-lime-700 hover:bg-lime-200 dark:bg-lime-900/30 dark:text-lime-400',
+    platforms: ['antigravity']
   },
   {
     label: '2.5-Flash-Lite透传',
     from: 'gemini-2.5-flash-lite',
     to: 'gemini-2.5-flash-lite',
-    color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+    color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400',
+    platforms: ['antigravity']
   }
 ]
 

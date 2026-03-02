@@ -73,14 +73,15 @@ var DefaultAntigravityModelMapping = map[string]string{
 	"claude-opus-4-6-thinking":   "claude-opus-4-6-thinking", // 官方模型
 	"claude-opus-4-6":            "claude-opus-4-6-thinking", // 简称映射
 	"claude-opus-4-5-thinking":   "claude-opus-4-6-thinking", // 迁移旧模型
-	"claude-sonnet-4-5":          "claude-sonnet-4-5",
-	"claude-sonnet-4-5-thinking": "claude-sonnet-4-5-thinking",
+	"claude-sonnet-4-6":          "claude-sonnet-4-6",        // 官方模型
+	"claude-sonnet-4-5":          "claude-sonnet-4-6",        // 迁移—sonnet 4.5 已下线
+	"claude-sonnet-4-5-thinking": "claude-sonnet-4-6",        // 迁移—无 4.5 thinking 继承版
 	// Claude 详细版本 ID 映射
 	"claude-opus-4-5-20251101":   "claude-opus-4-6-thinking", // 迁移旧模型
-	"claude-sonnet-4-5-20250929": "claude-sonnet-4-5",
+	"claude-sonnet-4-5-20250929": "claude-sonnet-4-6",        // 迁移—sonnet 4.5 已下线
 	// Claude Haiku → Sonnet（无 Haiku 支持）
-	"claude-haiku-4-5":          "claude-sonnet-4-5",
-	"claude-haiku-4-5-20251001": "claude-sonnet-4-5",
+	"claude-haiku-4-5":          "claude-sonnet-4-6",
+	"claude-haiku-4-5-20251001": "claude-sonnet-4-6",
 	// Gemini 2.5 白名单
 	"gemini-2.5-flash":          "gemini-2.5-flash",
 	"gemini-2.5-flash-lite":     "gemini-2.5-flash-lite",
@@ -94,10 +95,7 @@ var DefaultAntigravityModelMapping = map[string]string{
 	// Gemini 3.1 透传
 	"gemini-3.1-pro-high": "gemini-3.1-pro-high",
 	"gemini-3.1-pro-low":  "gemini-3.1-pro-low",
-	// Gemini 3 preview 映射
-	"gemini-3-flash-preview":     "gemini-3-flash",
-	"gemini-3-pro-preview":       "gemini-3.1-pro-high",
-	"gemini-3-pro-image-preview": "gemini-3-pro-image",
+	// Gemini 3 preview 映射 — 已移除：Antigravity 不存在 preview 系列模型
 	// 其他官方模型
 	"gpt-oss-120b-medium":    "gpt-oss-120b-medium",
 	"tab_flash_lite_preview": "tab_flash_lite_preview",
